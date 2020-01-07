@@ -1,1 +1,1 @@
-# bayesianEloRating
+# TrueSkill
