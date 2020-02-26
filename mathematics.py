@@ -7,6 +7,7 @@
    algorithm.  If you have not scipy, this module provides the fallback.
 
    :copyright: (c) 2012-2016 by Heungsub Lee.
+   :copyright: (c) 2019-2020 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 
 """
@@ -151,12 +152,21 @@ class Gaussian(object):
         return Gaussian(self.mu-other.mu, math.sqrt(self.sigma**2 + other.sigma**2) )
     
     def __mul__(self, other):
-        pi, tau = self.pi + other.pi, self.tau + other.tau
-        return Gaussian(pi=pi, tau=tau)
+    	if isinstance(other, Gaussian):
+            pi, tau = self.pi + other.pi, self.tau + other.tau
+            res = Gaussian(pi=pi, tau=tau)
+        else:
+            mu, sigma = self.mu * other, self.sigma * other
+            res = Gaussian(mu=mu, sigma=sigma)
+        return res
 
     def __truediv__(self, other):
-        pi, tau = self.pi - other.pi, self.tau - other.tau
-        return Gaussian(pi=pi, tau=tau)
+        if isinstance(other, Gaussian):
+            pi, tau = self.pi - other.pi, self.tau - other.tau
+            res = Gaussian(pi=pi, tau=tau)
+        else:
+            res = __mul__(self,1/other)
+        return res
 
     __div__ = __truediv__  # for Python 2
 
