@@ -152,7 +152,7 @@ class Gaussian(object):
         return Gaussian(self.mu-other.mu, math.sqrt(self.sigma**2 + other.sigma**2) )
     
     def __mul__(self, other):
-    	if isinstance(other, Gaussian):
+        if isinstance(other, Gaussian):
             pi, tau = self.pi + other.pi, self.tau + other.tau
             res = Gaussian(pi=pi, tau=tau)
         else:
