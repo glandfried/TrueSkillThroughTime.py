@@ -165,7 +165,7 @@ class Gaussian(object):
             pi, tau = self.pi - other.pi, self.tau - other.tau
             res = Gaussian(pi=pi, tau=tau)
         else:
-            res = __mul__(self,1/other)
+            res = self*(1/other)
         return res
 
     __div__ = __truediv__  # for Python 2
