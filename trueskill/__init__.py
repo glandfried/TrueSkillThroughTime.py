@@ -1,14 +1,11 @@
-##########################################
-## El estimador glicko de Online GO (OGS)
-## Parece no considerar el handicap
-##- En [1] definen "get_handicap_adjustment()", que...
-##- se usa en [2] en el constructor del RatingEntry que...
-##- se usa en [3] para generar el piechart de contra cuántos mejores o peores ganó/perdió el jugador
-## https://github.com/online-go/online-go.com/blob/8d5ffa47ccd2d59ef41454d6141183a9e6408ef9/src/lib/rank_utils.ts
-## https://github.com/online-go/online-go.com/blob/2ab4a2e291dd183cfc1d40d7d30d99beb31ca72a/src/components/RatingsChart/RatingEntry.ts
-## https://github.com/online-go/online-go.com/blob/978cc50179cc5b93e49a207693c72d2ccc5f148c/src/components/RatingsChart/RatingsChart.tsx
-
 from __future__ import absolute_import
+print("""
+   trueskill
+   ~~~~~~~~~
+   :copyright: (c) 2012-2016 by Heungsub Lee.
+   :copyright: (c) 2019-2020 by Gustavo Landfried.
+   :license: BSD, see LICENSE for more details.
+""")
 import time
 #from scipy.stats import norm
 from scipy.stats import entropy
@@ -272,8 +269,6 @@ class Team(Gaussian):
 class Game(object):
     def __init__(self, teams = None, results = None):
         
-        
-        
         self.results = list(results)
         self.teams = list(teams)
         
@@ -291,16 +286,11 @@ class Game(object):
         return list(res[0]), list(res[1])
     
     @property
-    def m_t_ft_nueva(self):
+    def m_t_ft(self):
         
         #truncadas = 0
         
-        def Nprod(xs):
-            res = Gaussian()
-            for x in xs:
-                res = res * x
-            return res
-
+        
         def thisDelta(old,new):
             mu_old, sigma_old = old
             mu_new, sigma_new = new
@@ -314,12 +304,12 @@ class Game(object):
         while delta > 1e-4:
             delta = 0
             for i in range(len(self.t)-2):#i=0
-                d_old = Nprod(diff_messages[i])
+                d_old = np.prod(diff_messages[i])
                 
                 diff_messages[i][0] = (
-                    Nprod(team_perf_messages[i])  / team_perf_messages[i][2]  
+                    np.prod(team_perf_messages[i])  / team_perf_messages[i][2]  
                     - 
-                    Nprod(team_perf_messages[i+1])/ team_perf_messages[i+1][1]
+                    np.prod(team_perf_messages[i+1])/ team_perf_messages[i+1][1]
                 )
                 
                 #start = time.time()
@@ -327,21 +317,21 @@ class Game(object):
                 #end = time.time()
                 #truncadas += end-start
                                 
-                delta = max(delta, thisDelta(d_old,Nprod(diff_messages[i])))   
+                delta = max(delta, thisDelta(d_old,np.prod(diff_messages[i])))   
                 
                 team_perf_messages[i+1][1] = (
-                    Nprod(team_perf_messages[i])/team_perf_messages[i][2]
+                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
                     - 
                     diff_messages[i][1]
                 )
                 
             for i in range(len(self.t)-2,0,-1):#i=8
-                d_old = Nprod(diff_messages[i])
+                d_old = np.prod(diff_messages[i])
                 
                 diff_messages[i][0] = (
-                    Nprod(team_perf_messages[i]) / team_perf_messages[i][2]
+                    np.prod(team_perf_messages[i]) / team_perf_messages[i][2]
                     -
-                    Nprod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                 )
                 
                 #start = time.time()
@@ -349,10 +339,10 @@ class Game(object):
                 #end = time.time()
                 #truncadas += end-start
                 
-                delta = max(delta, thisDelta(d_old,Nprod(diff_messages[i])))   
+                delta = max(delta, thisDelta(d_old,np.prod(diff_messages[i])))   
                 
                 team_perf_messages[i][2] = (
-                    Nprod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                     +
                     diff_messages[i][1]
                 )
@@ -362,108 +352,35 @@ class Game(object):
         if len(self.t)==2:
             i = 0
             diff_messages[0][0] = (
-                    Nprod(team_perf_messages[i])  / team_perf_messages[i][2]  
+                    np.prod(team_perf_messages[i])  / team_perf_messages[i][2]  
                     - 
-                    Nprod(team_perf_messages[i+1])/ team_perf_messages[i+1][1]
+                    np.prod(team_perf_messages[i+1])/ team_perf_messages[i+1][1]
                 )
             
             diff_messages[0][1] = diff_messages[i][0].trunc/diff_messages[i][0]
             
             team_perf_messages[i+1][1] = (
-                    Nprod(team_perf_messages[i])/team_perf_messages[i][2]
+                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
                     - 
                     diff_messages[i][1]
                 )
             team_perf_messages[i][2] = (
-                    Nprod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                     - 
                     diff_messages[i][1]
                 )
         
-        team_perf_messages[0][2] = Nprod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
+        team_perf_messages[0][2] = np.prod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
         
         i = len(self.t)-2
-        team_perf_messages[i+1][1] = Nprod(team_perf_messages[i])/team_perf_messages[i][2]-diff_messages[i][1]
+        team_perf_messages[i+1][1] = np.prod(team_perf_messages[i])/team_perf_messages[i][2]-diff_messages[i][1]
     
             
         res = [Gaussian() for i in range(len(self.t))]
         for i in range(len(self.t)):
-            res[i] = Nprod(team_perf_messages[i])/team_perf_messages[i][0]
+            res[i] = np.prod(team_perf_messages[i])/team_perf_messages[i][0]
         
         #print ('trunc ', truncadas)
-        return res
-    
-    
-    @property
-    def m_t_ft(self):
-        #truncadas = 0
-        nt = len(self.t)
-        nd = len(self.d)
-        
-        
-        t = [ self.t[e]  for e in range(nt)]
-        d = [ self.d[i]  for i in range(nd)]
-        #print(d)
-        #start = time.time()
-        m_fr_d = list(map(lambda d: d.trunc/d ,self.d))
-        #print("m_fr_d", m_fr_d)
-        #end = time.time()
-        #truncadas += end-start
-        
-        m_fd_t= []; m_t_fd = []
-        for i in range(nd):
-            #m_fr_d = [self.d[i].trunc/self.d[i] for i in range(len(self.d))]
-            m_fd_t.append([t[i+1]+m_fr_d[i], t[i]-m_fr_d[i]])
-            m_t_fd.append(None)
-        
-                
-        #print(m_fd_t)
-        
-        convergence = 0 ; k = 0
-        if len(t) > 2: convergence = np.inf
-        while k < 5 and convergence > 1e-3:
-            
-            m_fr_d_old = copy.copy(m_fr_d)
-            # Las puntas no se actuyalizan hasta el final
-            m_fd_t[0][0] = Gaussian();  m_fd_t[len(self.d)-1][1] = Gaussian(); 
-            # P(t) = \prod_{h \in n(t)} fh_t
-            for i in range(nd-1):
-                t[i+1] = self.t[i+1]*m_fd_t[i][1] 
-            for i in list(range(nd-1,0,-1)):
-                t[i] = t[i]* m_fd_t[i][0]     
-            # Vuelve a bajar
-            #print(t)
-            
-            #ipdb.set_trace()
-            
-            for i in range(nd):
-                m_t_fd[i] = (t[i]/m_fd_t[i][0],t[i+1]/m_fd_t[i][1]) 
-                d[i] = m_t_fd[i][0]-m_t_fd[i][1]
-                
-                #start = time.time()
-                trun = d[i].trunc
-                #end = time.time()
-                #truncadas += end-start
-                
-                
-                m_fr_d[i] = trun/d[i] 
-                m_fd_t[i] = [m_t_fd[i][1]+m_fr_d[i], m_t_fd[i][0]-m_fr_d[i]] 
-            
-            
-            k +=1;
-            convergence_mu = max([abs(m_fr_d_old[i].tau -m_fr_d[i].tau) for i in range(len(self.d))])
-            convergence_sigma = max([abs(m_fr_d_old[i].pi -m_fr_d[i].pi) for i in range(len(self.d))])
-            convergence = max(convergence_mu, convergence_sigma)
-            #print(k, convergence )
-            
-        res = [None for i in range(len(t))]
-        for i in range(len(t)):
-            if i == 0: res[i] = m_fd_t[i][0] 
-            elif i == len(t)-1: res[i] = m_fd_t[i-1][1]
-            else:  res[i] = m_fd_t[i-1][1]*m_fd_t[i][0]
-        
-        #print(truncadas, "truncadas")
-    
         return res
     
     @property
@@ -471,7 +388,7 @@ class Game(object):
         
 
         #start = time.time()
-        t_ft = self.m_t_ft_nueva
+        t_ft = self.m_t_ft
         #end = time.time()
         #print(end - start, "m_t_ft")
 
