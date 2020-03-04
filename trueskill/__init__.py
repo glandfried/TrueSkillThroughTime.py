@@ -14,9 +14,10 @@ import numpy as np
 import copy
 #import trueskill as ts
 #env = ts.TrueSkill(draw_probability=0,tau=0)
+from collections import defaultdict
 from .mathematics import Gaussian
 #from mathematics import Gaussian
-#import ipdb
+import ipdb
 
 BETA = 25/6
  
@@ -96,6 +97,9 @@ class Skill(Gaussian):
     def play(self):
         return np.random.normal(*self.performance)
 
+    def posterior(self,other):
+        return Skill(self*other,self.env)
+        
     def __repr__(self):
         c = type(self)
         if self.env is None:
@@ -103,8 +107,7 @@ class Skill(Gaussian):
         else: 
             args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
         return '%s(mu=%.3f, sigma=%.3f)' % args
-
-
+    
 class Rating(Gaussian):
     def __init__(self, mu=None, sigma=None, env=None, beta=None, noise=None):
         if isinstance(mu, tuple):
@@ -134,8 +137,11 @@ class Rating(Gaussian):
         return Gaussian(self,self.beta)
     
     def play(self):
-        return np.random.normal(*self.performance)
-
+        return np.random.normal(*self.performance)       
+    
+    def posterior(self,other):
+        return Rating(self*other,self.env,self.beta,self.noise)
+    
     def __repr__(self):
         c = type(self)
         if self.env is None:
@@ -176,6 +182,9 @@ class Handicap(Gaussian):
     @property
     def performance(self):
         return Gaussian(self,self.beta)
+
+    def posterior(self,other):
+        return Handicap(self*other,self.env)
     
     def play(self):
         return np.random.normal(*self.performance)
@@ -223,6 +232,9 @@ class Synergy(Gaussian):
     def performance(self):
         return Gaussian(self,self.beta)
     
+    def posterior(self,other):
+        return Synergy(self*other,self.env)
+        
     def play(self):
         return np.random.normal(*self.performance)
 
@@ -267,10 +279,16 @@ class Team(Gaussian):
         return '%s(mu=%.3f, sigma=%.3f)' % args 
 
 class Game(object):
-    def __init__(self, teams = None, results = None):
+    
+    def __init__(self, teams = None, results = None, names = None):
         
+        if isinstance(teams[0], Team):
+            self.teams = list(teams)
+        else:   
+            self.teams = [ Team(t) for t in teams]
         self.results = list(results)
-        self.teams = list(teams)
+        
+        self.names = names
         
         teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
         teams_sorted , index_sorted, _ = list(zip(*teams_index_sorted )) 
@@ -279,11 +297,22 @@ class Game(object):
         self.o = list(index_sorted)
         self.t =  teams_sorted #[ teams_sorted[e].performance for e in range(len(teams)) ]
         self.d = [ self.t[e]-self.t[e+1] for e in range(len(self.t)-1)]
-    
+        self.likelihood = self.compute_likelihood()
+        self.posterior = self.compute_posterior()
+        self.evidence = self.compute_evidence()
+        self.last_posterior , self.last_likelihood, self.last_evidence = self.posterior , self.likelihood, self.evidence
+        
     def sortTeams(self,teams,results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted )) 
         return list(res[0]), list(res[1])
+        
+    def last_posterior_of(self,elem):
+        return sum(self.last_posterior,[])[sum(self.index,[]).index(elem)] 
+    
+    def last_likelihood_of(self,elem):
+        return sum(self.last_likelihood,[])[sum(self.index,[]).index(elem)] 
+    
     
     @property
     def m_t_ft(self):
@@ -382,29 +411,21 @@ class Game(object):
         #print ('trunc ', truncadas)
         return res
     
-    @property
-    def likelihood(self):
-        
-
+    def compute_likelihood(self):
         #start = time.time()
         t_ft = self.m_t_ft
         #end = time.time()
-        #print(end - start, "m_t_ft")
-
-        
+        #print(end - start, "m_t_ft")    
         return [[t_ft[e]- self.t[e].exclude(i) for i in range(len(self.t[e]))] for e in range(len(self.t))]
     
-    @property
-    def posterior(self):    
+    def compute_posterior(self):    
         prior = self.t
         likelihood = self.likelihood
-        res= [[prior[e][i]*likelihood[e][i] for i in range(len(self.t[e]))] for e in range(len(self.t))]    
+        res= [[prior[e][i].posterior(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
         res, _ = self.sortTeams(res,self.o)
-
         return res 
-
-    @property
-    def evidence(self):
+    
+    def compute_evidence(self):
         res = 1
         for d in self.d:
             res *= d.cdf(d.mu/d.sigma)
@@ -415,10 +436,48 @@ class Game(object):
 
     def __repr__(self):
         c = type(self)
-        return '{}({},{})'.format(c.__name__,self.t,self.o)        
+        return '{}({},{})'.format(c.__name__,self.teams,self.o)        
     
-    def converge(self):
-        return self.posterior, self.likelihood
+    def update(self,new_prior=None):
+        """
+        TERMINAR, para usar con forward y backward cuando new_prior is not None
+        """
+        if new_prior is None:
+            return self.compute_posterior(), self.compute_likelihood(), self.compute_evidence()
+        else:
+            print("Implementar forward y backward TTT en metodos posterior y likelihood")
+            
+class History(object):
+    def __init__(self, names, results, times=None):
+        """
+        names: list of composition [[1,2],[1,3]] or [[[1],[2]],[[1,2],[3]]]
+        results : list of result
+        times : list of time
+        """
+        self.names = names
+        self.results = results
+        self.times = times
+        self.players = defaultdict(lambda: th.Skill(mu=25,sigma=25/3))
+        self.games = []
+    
+    def __len__(self):
+        return len(self.names)
+    
+    """
+    TODO: Seguir!!!!!!!!
+    Ver test.py
+    """
+    
+    
+    """
+    def create_games(self):
+        for g in range(len(self)):#g=0
+            teams = [[players[i] for i in ti ] if isinstance(ti, list) else [players[i]] for ti in names[g] ]
+            history.append(th.Game(teams,list_results[g]))
+            update_prior(sum(list_teams[g],[]) ,history[-1].posterior,prior)
+        return history, prior
+    """  
+    
     
 class TrueSkill(object):
     def __init__(self, mu_player=MU_PLAYER, sigma_player=SIGMA_PLAYER
