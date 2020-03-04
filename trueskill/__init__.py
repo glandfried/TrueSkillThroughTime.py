@@ -290,7 +290,6 @@ class Game(object):
         
         #truncadas = 0
         
-        
         def thisDelta(old,new):
             mu_old, sigma_old = old
             mu_new, sigma_new = new
@@ -417,7 +416,10 @@ class Game(object):
     def __repr__(self):
         c = type(self)
         return '{}({},{})'.format(c.__name__,self.t,self.o)        
-
+    
+    def converge(self):
+        return self.posterior, self.likelihood
+    
 class TrueSkill(object):
     def __init__(self, mu_player=MU_PLAYER, sigma_player=SIGMA_PLAYER
                  , beta_player=BETA_PLAYER, tau_player = TAU_PLAYER
@@ -448,14 +450,7 @@ class TrueSkill(object):
         return Rating(mu,sigma,self,beta,noise)
         
     def skill(self, mu=None, sigma=None):
-        """Initializes new :class:`Rating` object, but it fixes default mu and
-        sigma to the environment's.
-
-        >>> env = TrueSkill(mu=0, sigma=1)
-        >>> env.create_rating()
-        trueskill.Rating(mu=0.000, sigma=1.000)
-
-        """
+        """Initializes new :class"""
         if mu is None:
             mu = self.mu_player
         if sigma is None:
@@ -463,14 +458,7 @@ class TrueSkill(object):
         return Skill(mu, sigma, self)   
     
     def synergy(self, mu=None, sigma=None):
-        """Initializes new :class:`Rating` object, but it fixes default mu and
-        sigma to the environment's.
-
-        >>> env = TrueSkill(mu=0, sigma=1)
-        >>> env.create_rating()
-        trueskill.Rating(mu=0.000, sigma=1.000)
-
-        """
+        """Initializes new :class:"""
         if mu is None:
             mu = self.mu_teammate
         if sigma is None:

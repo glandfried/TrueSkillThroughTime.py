@@ -1,0 +1,48 @@
+\tikz{ %
+        
+      
+        \node[factor] (fr) {} ;
+        \node[const, above=of fr] (nfr) {$f_r$}; %
+	\node[const, above=of nfr] (dfr) {\large $\mathbb{I}(g\,d_{ab}>0)$}; %
+        \node[latent, left=of fr] (d) {$d_j$} ; %
+        \node[factor, left=of d] (fd) {} ;
+        \node[const, above=of fd] (nfd) {$f_d$}; %
+        \node[const, above=of nfd] (dfd) {\large $\mathbb{I}(d_{ab}=t_a - t_b)$}; %
+        \node[const, below=of d,yshift=-0.15cm] (j) {\footnotesize con signo $g:=1 - 2*\mathbb{I}(o_a < o_b) $};
+        
+        \node[latent, left=of fd,xshift=-0.9cm] (t) {$t_e$} ; %
+        \node[factor, left=of t] (ft) {} ;
+        \node[const, above=of ft] (nft) {$f_t$}; %
+        \node[const, above=of nft,xshift=0.5cm] (dft) {\large $\mathbb{I}(t_e = \sum_{i \in A_e} p_i)$}; %
+        
+        \node[latent, left=of ft] (p) {$p_i$} ; %
+        \node[factor, left=of p] (fp) {} ;
+        \node[const, above=of fp] (nfp) {$f_p$}; %
+        \node[const, above=of nfp] (dfp) {\large $N(p_i;s_i,\beta^2)$}; %
+ 
+        \node[latent, left=of fp] (s) {$s_i$} ; %
+        \node[factor, left=of s] (fs) {} ;
+        \node[const, above=of fs] (nfs) {$f_s$}; %
+        \node[const, above=of nfs] (dfs) {\large $N(s_i;\mu_i,\sigma^2)$}; %
+         
+        \edge[-] {d} {fr};
+	\edge[-] {fd} {d};
+        \edge[-] {fd} {t};
+        \edge[-] {t} {ft};
+        \edge[-] {ft} {p};
+        \edge[-] {p} {fp};
+        \edge[-] {fp} {s};
+        \edge[-] {s} {fs};
+	
+        \plate {personas} {(p)(s)(fs)(nfs)(dfp)(dfs)} {$i \in A_e$}; %
+        \node[invisible, below=of ft, yshift=-0.6cm] (inv_below_e) {};
+	\node[invisible, above=of ft, yshift=1.1cm] (inv_above_e) {};
+	\plate {equipos} {(personas) (t)(ft)(dft) (inv_above_e) (inv_below_e)} {$  \text{con $A$ partici\'on de jugadores }$  \hspace{3cm} $0 < e \leq |A|$}; %
+	\node[invisible, below=of fr, yshift=-0.6cm] (inv_below) {};
+	\node[invisible, above=of fr, yshift=1.1cm] (inv_above) {};
+	\plate {comparaciones} {(fd) (dfd) (d) (fr) (dfr) (inv_below) (inv_above)} {$a$ equipo focal \hspace{0.6cm} $0 < b \leq |A| \ , \ a \neq b$}
+	
+	
+	%\node[const, right= of r, xshift=1.2cm ,yshift=-2.1cm] (result-dist) {$r_{ab} \sim B\left(\Phi\left(\frac{\mu_a - \mu_b}{\sqrt{\beta_a^2+\beta_b^2}}\right)\right)$} ; %
+	      
+        }

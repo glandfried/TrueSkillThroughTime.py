@@ -1,0 +1,3 @@
+[submodule "documentation/tex"]
+	path = documentation/tex
+	url = git@github.com:glandfried/tex.git
