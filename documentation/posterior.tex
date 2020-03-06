@@ -1,6 +1,6 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[utf8]{inputenc}
- \input{tex/encabezado.tex}
+\input{tex/encabezado.tex}
 
 \usetikzlibrary{bayesnet} % Para que ande se necesita copiar el archivo  tikzlibrarybayesnet.code.tex en la misma carpeta
 
@@ -758,6 +758,43 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
  m_{t_a \rightarrow f_{t_a}}(t_a) \overset{\hfrac{\text{eq}}{\ref{eq:m_v_f}}}{=} \prod_{g \in n(t_a) \setminus  \{f_{t_a} \}} m_{g \rightarrow t_a} (t_a)  \overset{\hfrac{\text{eq}}{\ref{eq:m_fd_ta}}}{=} \Phi(t_a|\mu_b,\sigma_b^2) \overset{\hfrac{\mu_b}{\sigma_b}}{=} \Phi \Big(t_a| \sum_{i \in A_b} \mu_i , \sum_{i \in A_b} \beta^2 + \sigma_i^2 \Big) 
 \end{split}
 \end{equation}
+
+\section{Full TrueSkill}
+
+\section{TrueSkill through Time (TTT)}
+
+\todo[inline]{Notar que el paper original aplica la convergencia TTT solo al interior de un a\~no: ``we go through the game outcomes within a year t several times until convergence''.}
+
+The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
+
+\begin{verbatim}
+(s^t-1)----[f_s^t]----(s^t)----[f_s^t+1]----(s^t+1) 
+   |                    |                      |
+\end{verbatim} 
+
+
+\paragraph{Forward - First update} The update for a game outcome is performed in the same way as original TrueSkill, but saving the upward messages $m_{f_p\rightarrow s}(s)$, i.e. the variational likelihood, and the forward messages $m_{f_{s^{t+1}}\rightarrow s^{t+1}}(s^{t+1})$, i.e. the variational posterior.
+
+\paragraph{Backward} In the backward pass, the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
+
+\begin{verbatim}
+(s^t-1)<=<=[f_s^t]----(s^t)<-<-[f_s^t+1]----(s^t+1) 
+   |                    ^                      |
+                        ^
+\end{verbatim} 
+
+By the rules of the sum-product algorithm this message is,
+
+\begin{equation}
+ \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{New prior $t-1$}} = \int f_{s^t} \overbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}^{\text{Last likelihood}}
+\end{equation}
+
+
+
+
+
+\paragraph{Update again} When a game outcome comes up for update again, the new downward message $m_{{f_p}\rightarrow p}(p)$ can be calculated by
+
 
 
 

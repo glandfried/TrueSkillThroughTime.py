@@ -17,7 +17,7 @@ import copy
 from collections import defaultdict
 from .mathematics import Gaussian
 #from mathematics import Gaussian
-import ipdb
+#import ipdb
 
 BETA = 25/6
  
@@ -448,7 +448,7 @@ class Game(object):
             print("Implementar forward y backward TTT en metodos posterior y likelihood")
             
 class History(object):
-    def __init__(self, names, results, times=None):
+    def __init__(self, names, results, times=None, epsilon=10**-3):
         """
         names: list of composition [[1,2],[1,3]] or [[[1],[2]],[[1,2],[3]]]
         results : list of result
@@ -457,26 +457,63 @@ class History(object):
         self.names = names
         self.results = results
         self.times = times
-        self.players = defaultdict(lambda: th.Skill(mu=25,sigma=25/3))
+        self.epsilon = epsilon
+        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
+        self.backward = {}
         self.games = []
+        self.create_games()
     
     def __len__(self):
         return len(self.names)
     
-    """
-    TODO: Seguir!!!!!!!!
-    Ver test.py
-    """
+    def update_forward(self,names, posterior):
+        for i in range(len(names)):
+            self.forward[names[i]] = posterior[i]
     
+    def update_backward(self,names, likelihood):
+        for i in range(len(names)):
+            self.backward[names[i]] = likelihood[i]
     
-    """
+    def reset_forward(self):
+        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
+        
+    def add_game(self,g):
+        teams = [[self.forward[i] for i in ti ] if isinstance(ti, list) else [self.forward[ti]] for ti in self.names[g] ]
+        self.games.append(Game(teams,self.results[g]))
+        self.update_forward(sum(self.names[g],[]) if isinstance(self.names[g][0], list) else self.names[g],
+                            sum(self.games[-1].posterior,[]) if isinstance(self.games[-1].posterior[0], list) else self.games[-1].posterior)
+    
     def create_games(self):
         for g in range(len(self)):#g=0
-            teams = [[players[i] for i in ti ] if isinstance(ti, list) else [players[i]] for ti in names[g] ]
-            history.append(th.Game(teams,list_results[g]))
-            update_prior(sum(list_teams[g],[]) ,history[-1].posterior,prior)
-        return history, prior
-    """  
+            self.add_game(g)
+
+    def append(self, names, results, times=None):
+        n = len(self)
+        self.names += names
+        self.results += results
+        self.times += times
+        m = len(self)
+        for g in range(n,m):#g=0
+            self.add_game(g)
+    
+    def backpropagation(self):
+        delta = 0
+        self.games[-1].last_likelihood
+        return delta
+    
+    def propagation(self):
+        delta = 0
+        "IMPLEMENTAR"
+        return delta
+    
+    def converge(self):
+        delta_b = np.inf; delta_f = np.inf 
+        while max(delta_b,delta_f) > self.epsilon:
+            delta_b = self.backpropagation()
+            delta_f = self.propagation()
+        
+        
+    
     
     
 class TrueSkill(object):

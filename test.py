@@ -1,4 +1,6 @@
-import trueskill as th
+import src as th
+import trueskill as ts
+
 from importlib import reload  # Python 3.4+ only.
 reload(th)
 from collections import defaultdict
@@ -52,35 +54,22 @@ history[2].teams[0].performance
 # Prueba manual de TTT
 # El caso más simple 
 
-reload(th)
 
 
+"""
 s1_0 = th.Skill()
 s2_0 = th.Skill()
 s3_0 = th.Skill()
+ts.Game([ts.Team([s1_0]),ts.Team([s2_0])], [0,1]).posterior
+"""
 
-# Update
-g0 = th.Game(results = [0,1], names = [[1],[2]])
-g1 = th.Game([[s1_1],[s3_0]],[1,0],[[1],[3]])
-[s1_2], [s3_1] = g1.posterior 
-g2 = th.Game([[s2_1],[s3_1]] ,[0,1],[[2],[3]])
-[s2_2], [s3_2] = g2.posterior 
+reload(th)
+history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
+def backpropagation(self):
+    delta = 0
+    history.games[-1].last_likelihood
+    return delta
 
-# Backward
-g1.update(g2.last_posterior_of(2))
-
-
-
-history = th.History([[1,2],[1,3],[2,3]],[[0,1],[1,0],[0,1]])
-len(history)
-
-
-def backward():
-    for g in reversed(range(n)):#g=0
-        teams = [ th.Team([prior[i] for i in ti ]) for ti in list_teams[g] ]
-        game = th.Game(teams,list_results[g],list_likelihood[g])
-        "TODO: change Class Game()." 
-        
         
     
 
