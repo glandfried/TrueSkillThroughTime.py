@@ -287,7 +287,6 @@ class Game(object):
         else:   
             self.teams = [ Team(t) for t in teams]
         self.results = list(results)
-        
         self.names = names
         
         teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
@@ -313,7 +312,6 @@ class Game(object):
     def last_likelihood_of(self,elem):
         return sum(self.last_likelihood,[])[sum(self.index,[]).index(elem)] 
     
-    
     @property
     def m_t_ft(self):
         
@@ -323,7 +321,9 @@ class Game(object):
             mu_old, sigma_old = old
             mu_new, sigma_new = new
             return max(abs(mu_old-mu_new),abs(sigma_old-sigma_new))
-    
+        
+        
+        
         team_perf_messages = [[self.t[e], Gaussian(), Gaussian() ] for e in range(len(self.t))]
         
         diff_messages = [ [Gaussian(), Gaussian()] for i in range(len(self.t)-1) ]
@@ -479,7 +479,7 @@ class History(object):
         
     def add_game(self,g):
         teams = [[self.forward[i] for i in ti ] if isinstance(ti, list) else [self.forward[ti]] for ti in self.names[g] ]
-        self.games.append(Game(teams,self.results[g]))
+        self.games.append(Game(teams,self.results[g],self.names[g]))
         self.update_forward(sum(self.names[g],[]) if isinstance(self.names[g][0], list) else self.names[g],
                             sum(self.games[-1].posterior,[]) if isinstance(self.games[-1].posterior[0], list) else self.games[-1].posterior)
     
