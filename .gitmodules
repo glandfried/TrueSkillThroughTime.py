@@ -1,3 +1,6 @@
 [submodule "documentation/tex"]
 	path = documentation/tex
 	url = git@github.com:glandfried/tex.git
+[submodule "documentation/biblio"]
+	path = documentation/biblio
+	url = git@github.com:glandfried/biblio.git

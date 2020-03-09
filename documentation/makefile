@@ -1,12 +1,14 @@
 all: submodule fig pdf clean
 
-submodule: tex/.git
+submodule: tex/.git biblio/.git
 
 tex/.git:
 	git submodule update --init ./tex/
+biblio/.git:
+	git submodule update --init ./biblio/
 
 fig:
-	make -C ./figures/
+	make -C ./figures/1
 
 pdf:
 	pdflatex posterior.tex
