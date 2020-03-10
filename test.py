@@ -1,13 +1,30 @@
 import src as th
-import trueskill as ts
+#import trueskill as ts
 
 from importlib import reload  # Python 3.4+ only.
 reload(th)
-from collections import defaultdict
+#from collections import defaultdict
 
 names = [ [1,2], [1,3], [[2],[3]] ]
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
+
+for i in range(3):
+    res = dict(zip(sum(history.games[i].names,[]) if isinstance(history.games[i].names[0],list) else names[i],
+         sum([te.ratings for te in history.games[i].teams ],[])))
+dict(zip(names[1],sum([te.ratings for te in history.games[1].teams ],[])))
+
+
+history.games[2].names
+
+for t in history.games[2].teams:
+    print(t.ratings)
+
+history.games[2].ratings
+history.games[1].ratings
+history.games[0].ratings
+
+history.games[2].names
 
 "Hay que agregar indices de los jugadores en las clases rearmar el camino de vuelta"
 "Acá lo hago a ojo"

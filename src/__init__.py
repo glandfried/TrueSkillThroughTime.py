@@ -99,7 +99,10 @@ class Skill(Gaussian):
 
     def posterior(self,other):
         return Skill(self*other,self.env)
-        
+    
+    def modify(self, other):
+        super(Skill, self).modify(other)
+    
     def __repr__(self):
         c = type(self)
         if self.env is None:
@@ -141,6 +144,9 @@ class Rating(Gaussian):
     
     def posterior(self,other):
         return Rating(self*other,self.env,self.beta,self.noise)
+    
+    def modify(self, other):
+        super(Skill, self).modify(other)
     
     def __repr__(self):
         c = type(self)
@@ -188,6 +194,9 @@ class Handicap(Gaussian):
     
     def play(self):
         return np.random.normal(*self.performance)
+
+    def modify(self, other):
+        super(Skill, self).modify(other)
 
     def __repr__(self):
         c = type(self)
@@ -237,6 +246,9 @@ class Synergy(Gaussian):
         
     def play(self):
         return np.random.normal(*self.performance)
+
+    def modify(self, other):
+        super(Skill, self).modify(other)
 
     def __repr__(self):
         c = type(self)
@@ -289,6 +301,11 @@ class Game(object):
         self.results = list(results)
         self.names = names
         
+        if not self.names is None:
+            self.ratings = dict(zip(
+                sum(self.names,[]) if isinstance(self.names[0], list) else self.names ,
+                sum([te.ratings for te in self.teams],[]) ))
+        
         teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
         teams_sorted , index_sorted, _ = list(zip(*teams_index_sorted )) 
         
@@ -300,7 +317,7 @@ class Game(object):
         self.posterior = self.compute_posterior()
         self.evidence = self.compute_evidence()
         self.last_posterior , self.last_likelihood, self.last_evidence = self.posterior , self.likelihood, self.evidence
-        
+    
     def sortTeams(self,teams,results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted )) 
