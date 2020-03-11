@@ -1,36 +1,46 @@
 import src as th
 #import trueskill as ts
-
+import numpy as np
 from importlib import reload  # Python 3.4+ only.
 reload(th)
-#from collections import defaultdict
+from collections import defaultdict
 
-names = [ [1,2], [1,3], [[2],[3]] ]
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
-
-for i in range(3):
-    res = dict(zip(sum(history.games[i].names,[]) if isinstance(history.games[i].names[0],list) else names[i],
-         sum([te.ratings for te in history.games[i].teams ],[])))
-dict(zip(names[1],sum([te.ratings for te in history.games[1].teams ],[])))
+history.forward
+#history.games[0][0][0].modify(th.Gaussian(0,np.inf))
 
 
-history.games[2].names
+def flat(xs):
+    if len(xs) == 0 or not isinstance(xs[0],list):
+        res = xs
+    else:
+        res = sum(xs,[])
+    return res
 
-for t in history.games[2].teams:
-    print(t.ratings)
 
-history.games[2].ratings
-history.games[1].ratings
-history.games[0].ratings
-
-history.games[2].names
-
-"Hay que agregar indices de los jugadores en las clases rearmar el camino de vuelta"
-"Acá lo hago a ojo"
-back = dict(history.forward)
-for g in range(len(history)):#g=2
+back = defaultdict(lambda: th.Gaussian())
+for g in reversed(range(len(history))):#g=2
     g_names = history.games[g].names
+    new_prior = {}
+    for n in flat(g_names):#n=3
+        new_prior[n] = back[n] * history.games[g].dict_prior[n]
+        """ CUANDO CAMBIO UN RATING, SE CAMBIAN TODOS
+        history.games[g].dict_prior[n].modify(new_prior[n])
+        history.games[g].teams[1].ratings
+        """      
+    
+    
+    history.games[g].update(new_prior)
+    """
+    SEGUIR
+    Calcular la partida de vuelta con los new_prior!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    """  
+    
+    for n in flat(g_names):#n=2
+        back[n] = th.Skill(history.games[g].dict_likelihood[n])
+            
+            
     g_back_new_prior = [ [back[i] for i in te] if isinstance(te,list) else back[i] for te in g_names] 
     "SEGUIR: las partidas hojas usan como new prior el old prior. (tener en cuenta no hacer la corrección por old likelihood adentro)"
     for i in g_back:

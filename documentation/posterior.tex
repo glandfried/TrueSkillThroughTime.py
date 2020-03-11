@@ -765,6 +765,8 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
 
 \todo[inline]{Notar que el paper original aplica la convergencia TTT solo al interior de un a\~no: ``we go through the game outcomes within a year t several times until convergence''.}
 
+\vspace{0.3cm}
+
 The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
 
 \begin{verbatim}
@@ -773,9 +775,9 @@ The basic idea is to update repeatedly on the same game outcomes but making sure
 \end{verbatim} 
 
 
-\paragraph{Forward - First update} The update for a game outcome is performed in the same way as original TrueSkill, but saving the upward messages $m_{f_p\rightarrow s}(s)$, i.e. the variational likelihood.  and the forward messages $m_{f_{s^{t+1}}\rightarrow s^{t+1}}(s^{t+1})$, i.e. the variational posterior.
+\paragraph{Forward - First update} The update for a game outcome is performed in the same way as original TrueSkill, but saving (A) the upward messages $m_{f_p\rightarrow s}(s)$, i.e. the variational likelihood, and (C) the forward messages $m_{f_{s^{t+1}}\rightarrow s^{t+1}}(s^{t+1})$, i.e. the variational posterior.
 
-\paragraph{Backward} In the backward pass, the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
+\paragraph{Backward} In the backward pass (D), the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
 
 \begin{verbatim}
 (s^t-1)<=<=[f_s^t]----(s^t)<-<-[f_s^t+1]----(s^t+1) 
@@ -786,8 +788,44 @@ The basic idea is to update repeatedly on the same game outcomes but making sure
 By the rules of the sum-product algorithm this message is,
 
 \begin{equation}
- \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{New prior $t-1$}} = \int f_{s^t} \overbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}^{\text{Last likelihood}}
+\begin{split}
+ \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int f_{s^t} \overbrace{m_{s^t \rightarrow f_s^t}(s^t)}^{\text{Inverse posterior $t$}} \\
+ & = \int f_{s^t} \underbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}_{\text{Last likelihood $t$}} \underbrace{m_{f_{s^{t+1}}\rightarrow s^t}(s^t)}_{\text{Back prior $t$ }}
+\end{split}
 \end{equation}
+
+When $t$ is an endpoint then this message it is simplified as,
+
+\begin{equation}
+ \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} = \int f_{s^t} \overbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}^{\text{Last likelihood $t$}}
+\end{equation}
+% 
+% The endpoint back message will be,
+% 
+% \begin{equation}
+% \begin{split}
+% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{last like}^t},\sigma_{\text{last like}^t}^2)}^{\text{Last likelihood $t$}} ds^t \\
+% & \propto \N(s^{t-1}|\mu_{\text{last like}^t},\sigma_{\text{last like}^t}^2 + \tau^2)
+% \end{split}
+% \end{equation}
+% 
+% The non endpoint back message will be,
+% 
+% \begin{equation}
+% \begin{split}
+% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2)}^{\text{Last likelihood $t$}}  \overbrace{m_{f_{s^{t+1}}\rightarrow s^t}(s^t)}^{\text{Back prior $t$ }} ds^t 
+% \end{split}
+% \end{equation}
+% 
+% The first non endpoint
+% 
+% \begin{equation}
+% \begin{split}
+% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2)}^{\text{Last likelihood $t$}} \overbrace{\N(s^{t}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \tau^2)}^{\text{First back prior}} ds^t \\
+% & = \N(s^{t-1}|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2 + \tau^2) \int \N(s^t | \mu_{\times}, \sigma_{\times}^2)\N(s^{t}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \tau^2) ds^t \\
+% & \propto  \N(s^{t-1}|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2 + \tau^2) \N(\underbrace{\mu_{\times}}_{\mu_{\times}(s^{t-1})}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \sigma_{\text{like}^{t+1}}^2 + \tau^2) 
+% \end{split}
+% \end{equation}
 
 
 

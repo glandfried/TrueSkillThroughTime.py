@@ -17,7 +17,7 @@ import copy
 from collections import defaultdict
 from .mathematics import Gaussian
 #from mathematics import Gaussian
-#import ipdb
+import ipdb
 
 BETA = 25/6
  
@@ -100,8 +100,8 @@ class Skill(Gaussian):
     def posterior(self,other):
         return Skill(self*other,self.env)
     
-    def modify(self, other):
-        super(Skill, self).modify(other)
+    #def modify(self, other):
+    #    super(Skill, self).modify(other)
     
     def __repr__(self):
         c = type(self)
@@ -265,16 +265,16 @@ class Team(Gaussian):
         self.ratings = self.skills
         if not self.synergys is None: 
             self.ratings += self.synergys 
-        mu = sum(map(lambda s: s.mu, self.ratings))
-        sigma = np.sqrt(np.sum(list(map(lambda s: s.performance.sigma**2, self.ratings))) )
-        super(Team, self).__init__(mu, sigma)
-        
+        self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
+        super(Team, self).__init__(self.mu, self.sigma)
+            
     @property
-    def performance(self):#e=0
-        return Gaussian(self.mu,self.sigma)
+    def mu(self):
+        return sum(map(lambda s: s.mu, self.ratings))
     
-    def play(self):
-        return np.random.normal(*self.performance)
+    @property
+    def sigma(self):
+        return np.sqrt(np.sum(list(map(lambda s: s.performance.sigma**2, self.ratings))) )
     
     def __len__(self):
         return len(self.ratings)
@@ -313,21 +313,27 @@ class Game(object):
         self.o = list(index_sorted)
         self.t =  teams_sorted #[ teams_sorted[e].performance for e in range(len(teams)) ]
         self.d = [ self.t[e]-self.t[e+1] for e in range(len(self.t)-1)]
+        self.last_likelihood = Gaussian()
+        self.prior = [ te.ratings for te in self.teams ]
         self.likelihood = self.compute_likelihood()
         self.posterior = self.compute_posterior()
         self.evidence = self.compute_evidence()
         self.last_posterior , self.last_likelihood, self.last_evidence = self.posterior , self.likelihood, self.evidence
+    
+    
     
     def sortTeams(self,teams,results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted )) 
         return list(res[0]), list(res[1])
         
-    def last_posterior_of(self,elem):
-        return sum(self.last_posterior,[])[sum(self.index,[]).index(elem)] 
+    @property
+    def dict_prior(self):
+        return dict(zip(flat(self.names),flat(self.prior)))
     
-    def last_likelihood_of(self,elem):
-        return sum(self.last_likelihood,[])[sum(self.index,[]).index(elem)] 
+    @property
+    def dict_likelihood(self):
+        return dict(zip(flat(self.names),flat(self.last_likelihood)))
     
     @property
     def m_t_ft(self):
@@ -451,18 +457,21 @@ class Game(object):
     def __iter__(self):
         return iter(self.t)
 
+    def __getitem__(self,key):
+        return self.teams[key]
+
     def __repr__(self):
         c = type(self)
         return '{}({},{})'.format(c.__name__,self.teams,self.o)        
     
-    def update(self,new_prior=None):
-        """
-        TERMINAR, para usar con forward y backward cuando new_prior is not None
-        """
-        if new_prior is None:
-            return self.compute_posterior(), self.compute_likelihood(), self.compute_evidence()
-        else:
-            print("Implementar forward y backward TTT en metodos posterior y likelihood")
+    def update(self,new_prior):
+        for n in new_prior.keys():
+            self.dict_prior[n].modify(new_prior[n])
+        
+        self.last_posterior = self.compute_posterior()
+        self.last_likelihood = self.compute_likelihood() 
+        self.last_evidence = self.compute_evidence()
+        
             
 class History(object):
     def __init__(self, names, results, times=None, epsilon=10**-3):
@@ -486,11 +495,9 @@ class History(object):
     def update_forward(self,names, posterior):
         for i in range(len(names)):
             self.forward[names[i]] = posterior[i]
-    
-    def update_backward(self,names, likelihood):
-        for i in range(len(names)):
-            self.backward[names[i]] = likelihood[i]
-    
+
+
+
     def reset_forward(self):
         self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
         
@@ -652,5 +659,12 @@ def setup(mu_player=MU_PLAYER, sigma_player=SIGMA_PLAYER
 
 def kl(p,q):
     return entropy(p,q)
-        
+  
+def flat(xs):
+    if len(xs) == 0 or not isinstance(xs[0],list):
+        res = xs
+    else:
+        res = sum(xs,[])
+    return res
+      
     
