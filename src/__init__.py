@@ -15,6 +15,7 @@ import copy
 #import trueskill as ts
 #env = ts.TrueSkill(draw_probability=0,tau=0)
 from collections import defaultdict
+from collections.abc import Iterable
 from .mathematics import Gaussian
 #from mathematics import Gaussian
 import ipdb
@@ -145,9 +146,6 @@ class Rating(Gaussian):
     def posterior(self,other):
         return Rating(self*other,self.env,self.beta,self.noise)
     
-    def modify(self, other):
-        super(Skill, self).modify(other)
-    
     def __repr__(self):
         c = type(self)
         if self.env is None:
@@ -258,15 +256,17 @@ class Synergy(Gaussian):
             args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
         return '%s(mu=%.3f, sigma=%.3f)' % args 
 
-class Team(Gaussian):
+class Team(object):
     def __init__(self, skills=None, synergys=None):
         self.skills = skills
         self.synergys = synergys
         self.ratings = self.skills
         if not self.synergys is None: 
             self.ratings += self.synergys 
-        self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
-        super(Team, self).__init__(self.mu, self.sigma)
+        self.prior = self.ratings
+        self.inverse_prior = [Gaussian() for _ in self.ratings]
+        #self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
+        #super(Team, self).__init__(self.mu, self.sigma)
             
     @property
     def mu(self):
@@ -275,6 +275,13 @@ class Team(Gaussian):
     @property
     def sigma(self):
         return np.sqrt(np.sum(list(map(lambda s: s.performance.sigma**2, self.ratings))) )
+    
+    @property
+    def performance(self):
+        return np.sum([ (self.prior[i].performance*self.inverse_prior[i]) for i in range(len(self)) ]) 
+    
+    def back_info(self,inverse_prior):
+        self.inverse_prior = inverse_prior
     
     def __len__(self):
         return len(self.ratings)
@@ -286,9 +293,7 @@ class Team(Gaussian):
         return Gaussian(self.mu - self[key].mu, np.sqrt(self.sigma**2 - self[key].sigma**2))
     
     def __repr__(self):
-        c = type(self)
-        args = ( c.__name__,*iter(self))
-        return '%s(mu=%.3f, sigma=%.3f)' % args 
+        return '{}{}'.format("Team",tuple(self.performance) )
 
 class Game(object):
     
@@ -298,43 +303,35 @@ class Game(object):
             self.teams = list(teams)
         else:   
             self.teams = [ Team(t) for t in teams]
+        #self.teams = [ list(t) if isinstance(t,Iterable) else [t]  for t in teams]
         self.results = list(results)
-        self.names = names
         
-        if not self.names is None:
-            self.ratings = dict(zip(
-                sum(self.names,[]) if isinstance(self.names[0], list) else self.names ,
-                sum([te.ratings for te in self.teams],[]) ))
-        
+        if not names is None:
+            self.names = [list(n) if isinstance(n,Iterable) else [n] for n in names]
+            
         teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
         teams_sorted , index_sorted, _ = list(zip(*teams_index_sorted )) 
-        
-        #self.s = teams_sorted 
+    
         self.o = list(index_sorted)
-        self.t =  teams_sorted #[ teams_sorted[e].performance for e in range(len(teams)) ]
-        self.d = [ self.t[e]-self.t[e+1] for e in range(len(self.t)-1)]
-        self.last_likelihood = Gaussian()
-        self.prior = [ te.ratings for te in self.teams ]
-        self.likelihood = self.compute_likelihood()
-        self.posterior = self.compute_posterior()
-        self.evidence = self.compute_evidence()
-        self.last_posterior , self.last_likelihood, self.last_evidence = self.posterior , self.likelihood, self.evidence
-    
-    
+        self.t = teams_sorted
+        self.d = [ self.t[e].performance - self.t[e+1].performance for e in range(len(self.t)-1)]
+        
+        #self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
+        #self.prior = [[r for r in te.ratings] for te in self.teams] 
+        #self.inverse_prior = [[Gaussian() for r in te.ratings] for te in self.teams] 
+        
+        self.vanilla_likelihood = self.compute_likelihood()
+        self.vanilla_posterior = self.compute_posterior()
+        self.vanilla_evidence = self.compute_evidence()
+        self.last_posterior, self.last_likelihood, self.last_evidence = self.vanilla_posterior , self.vanilla_likelihood, self.vanilla_evidence
     
     def sortTeams(self,teams,results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted )) 
         return list(res[0]), list(res[1])
-        
-    @property
-    def dict_prior(self):
-        return dict(zip(flat(self.names),flat(self.prior)))
     
-    @property
-    def dict_likelihood(self):
-        return dict(zip(flat(self.names),flat(self.last_likelihood)))
-    
+    def prior(self):
+        return [te.ratings for te in self.teams]
     @property
     def m_t_ft(self):
         
@@ -345,9 +342,7 @@ class Game(object):
             mu_new, sigma_new = new
             return max(abs(mu_old-mu_new),abs(sigma_old-sigma_new))
         
-        
-        
-        team_perf_messages = [[self.t[e], Gaussian(), Gaussian() ] for e in range(len(self.t))]
+        team_perf_messages = [[self.t[e].performance, Gaussian(), Gaussian() ] for e in range(len(self.t))]
         
         diff_messages = [ [Gaussian(), Gaussian()] for i in range(len(self.t)-1) ]
         
@@ -433,45 +428,52 @@ class Game(object):
         
         #print ('trunc ', truncadas)
         return res
-    
-    def compute_likelihood(self):
+
+    @property
+    def m_fp_s(self):
         #start = time.time()
         t_ft = self.m_t_ft
         #end = time.time()
         #print(end - start, "m_t_ft")    
         return [[t_ft[e]- self.t[e].exclude(i) for i in range(len(self.t[e]))] for e in range(len(self.t))]
     
+    def compute_likelihood(self):
+        likelihood, _ = self.sortTeams(self.m_fp_s,self.o)
+        return likelihood
+    
     def compute_posterior(self):    
         prior = self.t
-        likelihood = self.likelihood
+        likelihood = self.m_fp_s
         res= [[prior[e][i].posterior(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
-        res, _ = self.sortTeams(res,self.o)
-        return res 
+        posterior, _ = self.sortTeams(res,self.o)
+        return posterior 
     
     def compute_evidence(self):
         res = 1
         for d in self.d:
             res *= d.cdf(d.mu/d.sigma)
         return res
-     
+    
+    @property
+    def update(self):
+        #ipdb.set_trace()
+        self.last_posterior = self.compute_posterior()
+        self.last_likelihood = self.compute_likelihood() 
+        self.last_evidence = self.compute_evidence()
+        return self.last_likelihood
+        
     def __iter__(self):
         return iter(self.t)
 
     def __getitem__(self,key):
         return self.teams[key]
-
+    
+    def __len__(self):
+        return len(self.teams)
+    
     def __repr__(self):
         c = type(self)
-        return '{}({},{})'.format(c.__name__,self.teams,self.o)        
-    
-    def update(self,new_prior):
-        for n in new_prior.keys():
-            self.dict_prior[n].modify(new_prior[n])
-        
-        self.last_posterior = self.compute_posterior()
-        self.last_likelihood = self.compute_likelihood() 
-        self.last_evidence = self.compute_evidence()
-        
+        return '{}({},{})'.format(c.__name__,self.teams,self.o)
             
 class History(object):
     def __init__(self, names, results, times=None, epsilon=10**-3):
@@ -485,7 +487,7 @@ class History(object):
         self.times = times
         self.epsilon = epsilon
         self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
-        self.backward = {}
+        self.backward = defaultdict(lambda: Gaussian()) 
         self.games = []
         self.create_games()
     
@@ -496,16 +498,14 @@ class History(object):
         for i in range(len(names)):
             self.forward[names[i]] = posterior[i]
 
+    def update_backward(self,names,inverse_posterior):
+        for i in range(len(names)):
+            self.backward[names[i]] = inverse_posterior[i]
 
-
-    def reset_forward(self):
-        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
-        
     def add_game(self,g):
         teams = [[self.forward[i] for i in ti ] if isinstance(ti, list) else [self.forward[ti]] for ti in self.names[g] ]
         self.games.append(Game(teams,self.results[g],self.names[g]))
-        self.update_forward(sum(self.names[g],[]) if isinstance(self.names[g][0], list) else self.names[g],
-                            sum(self.games[-1].posterior,[]) if isinstance(self.games[-1].posterior[0], list) else self.games[-1].posterior)
+        self.update_forward(flat(self.names[g]),flat(self.games[-1].last_posterior))
     
     def create_games(self):
         for g in range(len(self)):#g=0
@@ -522,11 +522,20 @@ class History(object):
     
     def backpropagation(self):
         delta = 0
-        self.games[-1].last_likelihood
-        return delta
+        self.backward = defaultdict(lambda: Gaussian()) 
+        for g in reversed(range(len(self))):#g=2
+            inverse_prior = [ [ self.backward[n] for n in ns] for ns in self.games[g].names]
+            for e in range(len(self.games[g])):#n=2
+                self.games[g].teams[e].back_info(inverse_prior[e])
+            likelihood = self.games[g].update
+            inverse_posterior = [flat(inverse_prior)[i]*flat(likelihood)[i] for i in range(len(flat(self.games[g].names)))]
+            self.update_backward(flat(self.games[g].names),flat(inverse_posterior))
+        return self.backward
+        
     
     def propagation(self):
         delta = 0
+        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
         "IMPLEMENTAR"
         return delta
     
@@ -534,6 +543,7 @@ class History(object):
         delta_b = np.inf; delta_f = np.inf 
         while max(delta_b,delta_f) > self.epsilon:
             delta_b = self.backpropagation()
+            self.reset_forward()
             delta_f = self.propagation()
         
         
