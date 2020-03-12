@@ -6,10 +6,36 @@ reload(th)
 from collections import defaultdict
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
-history.backpropagation()
 history.forward
-history.backward
 
+history.backpropagation()
+history.backward
+history.propagation()
+history.forward
+
+learning_curve = defaultdict(lambda: [] ) 
+forgeting_curve = defaultdict(lambda: [] ) 
+for g in  history.games:
+    for i in range(len(th.flat(g.names))):
+        learning_curve[th.flat(g.names)[i]].append(th.flat(g.prior())[i])
+        forgeting_curve[th.flat(g.names)[i]].append(th.flat(g.inverse_prior())[i])
+for n in history.forward.keys():
+    learning_curve[n].append(history.forward[n]) 
+    forgeting_curve[n] = [history.backward[n]] + forgeting_curve[n]
+
+history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5)
+history.forward
+history.backpropagation()
+history.backward
+history.propagation()
+history.forward
+
+history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6]]*4,[[0,1],[1,0],[0,1]]*4+[[0,1]]*4)
+history.forward
+history.backpropagation()
+history.backward
+history.propagation()
+history.forward
 
 #history.games[2].update
 back_prior_history = defaultdict(lambda: [th.Skill(th.Gaussian())] ) 

@@ -283,6 +283,10 @@ class Team(object):
     def back_info(self,inverse_prior):
         self.inverse_prior = inverse_prior
     
+    def for_info(self,prior):
+        self.prior = prior
+        self.ratings = prior
+    
     def __len__(self):
         return len(self.ratings)
     
@@ -332,6 +336,9 @@ class Game(object):
     
     def prior(self):
         return [te.ratings for te in self.teams]
+    def inverse_prior(self):
+        return [te.inverse_prior for te in self.teams]
+    
     @property
     def m_t_ft(self):
         
@@ -460,7 +467,7 @@ class Game(object):
         self.last_posterior = self.compute_posterior()
         self.last_likelihood = self.compute_likelihood() 
         self.last_evidence = self.compute_evidence()
-        return self.last_likelihood
+        return self.last_likelihood, self.last_posterior
         
     def __iter__(self):
         return iter(self.t)
@@ -521,22 +528,27 @@ class History(object):
             self.add_game(g)
     
     def backpropagation(self):
-        delta = 0
+        delta = np.inf
         self.backward = defaultdict(lambda: Gaussian()) 
         for g in reversed(range(len(self))):#g=2
             inverse_prior = [ [ self.backward[n] for n in ns] for ns in self.games[g].names]
             for e in range(len(self.games[g])):#n=2
                 self.games[g].teams[e].back_info(inverse_prior[e])
-            likelihood = self.games[g].update
+            likelihood, _ = self.games[g].update
             inverse_posterior = [flat(inverse_prior)[i]*flat(likelihood)[i] for i in range(len(flat(self.games[g].names)))]
             self.update_backward(flat(self.games[g].names),flat(inverse_posterior))
-        return self.backward
+        return delta
         
     
     def propagation(self):
-        delta = 0
+        delta = np.inf
         self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
-        "IMPLEMENTAR"
+        for g in range(len(self)):#g=2
+            prior = [ [ self.forward[n] for n in ns] for ns in self.games[g].names]
+            for e in range(len(self.games[g])):#n=2
+                self.games[g].teams[e].for_info(prior[e])
+            _, posterior = self.games[g].update
+            self.update_forward(flat(self.games[g].names),flat(posterior))
         return delta
     
     def converge(self):
@@ -547,7 +559,8 @@ class History(object):
             delta_f = self.propagation()
         
         
-    
+    def evidence(self):
+        pass
     
     
 class TrueSkill(object):
