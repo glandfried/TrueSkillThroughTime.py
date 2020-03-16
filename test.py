@@ -5,6 +5,7 @@ from importlib import reload  # Python 3.4+ only.
 reload(th)
 from collections import defaultdict
 
+
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
 history.forward
 
@@ -22,6 +23,8 @@ for g in  history.games:
 for n in history.forward.keys():
     learning_curve[n].append(history.forward[n]) 
     forgeting_curve[n] = [history.backward[n]] + forgeting_curve[n]
+
+
 
 history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5)
 history.forward
@@ -53,46 +56,49 @@ for g in reversed(range(len(history))):#g=1
     for i in range(len(flat_names)):
         back_prior_history[flat_names[i]].append(history.backward[flat_names[i]])
 
-for g in range(len(history)):
+###########
         
-    
-    
-history.games[0].teams
-history.games[1].teams
-history.games[2].teams
+import kickscore as ks
+from datetime import datetime
+import time
 
-# Prueba manual de TTT
-# El caso más simple 
+observations = list()
+clock = time.time() 
 
-isinstance(s1_0, th.Gaussian)
-
-s1_0 = th.Skill()
-s2_0 = th.Skill()
-s3_0 = th.Skill()
-
-th.Gaussian(mu=s1_0,sigma= 3) 
+teams = [['1','2'],['1','3'],['2','3']]
+results = [[0,1],[1,0],[0,1]]
 
 
-s1_0.performance
+for i in range(len(teams)):
+    if int(results[i][0]) < int(results[i][1]):
+        observations.append({ "winners": [teams[i][0]], "losers": [teams[i][1]], "t": clock +i})
+    else:
+        observations.append({ "winners": [teams[i][1]], "losers": [teams[i][0]], "t": clock +i})
 
-teams = [[s1_0],[s2_0]]
-teams_performances = [np.sum(list(map(lambda x: x.performance,te))) for te in teams]
+seconds_in_year = 365.25 * 24 * 60 * 60
 
+model = ks.BinaryModel()
+kernel = (ks.kernel.Constant(var=0.03) + ks.kernel.Matern32(var=0.138, lscale=1.753*seconds_in_year))
 
+for team in range(1,4):
+    model.add_item(str(team), kernel=kernel)
 
+for obs in observations:
+    model.observe(**obs)
 
-te = th.Team([s1_0,s2_0])
-te.t
+start_time = time.time()
+converged = model.fit()
+if converged:
+    print("Model has converged.")
+elapsed_time = time.time() - start_time
+# 30 segundos, 3 partidas
 
-g = th.Game([th.Team([s1_0]),th.Team([s2_0])], [0,1])
-g.t
+model.item['1'].scores[1]
+model.item['2'].scores[1]
+model.item['3'].scores[1]
 
-def backpropagation(self):
-    delta = 0
-    history.games[-1].last_likelihood
-    return delta
-
-        
-    
-
-
+model.plot_scores(['1'], figsize=(14, 5));
+model.plot_scores(['2'], figsize=(14, 5));
+model.log_likelihood
+import numpy as np
+np.exp(model.log_likelihood/3)
