@@ -4,6 +4,7 @@ submodule: tex/.git biblio/.git
 
 tex/.git:
 	git submodule update --init ./tex/
+	ln -s tex/tikzlibrarybayesnet.code.tex tikzlibrarybayesnet.code.tex
 biblio/.git:
 	git submodule update --init ./biblio/
 

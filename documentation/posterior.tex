@@ -763,19 +763,101 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
 
 \section{TrueSkill through Time (TTT)}
 
-\todo[inline]{Notar que el paper original aplica la convergencia TTT solo al interior de un a\~no: ``we go through the game outcomes within a year t several times until convergence''.}
+Consider a game in which $N$ players $\{1, \dots, N\}$ are compete over a period of $T$ time steps or temporal batch (e.g. day, week, month, year).
+Denote the series of games outcomes between two players $i$ and $j$ within a temporal batch $t$ by $\vm{y}^t_{ij}(k)$, where $k \in \{1,\dots,K^t_{ij}\}$, with $K^t_{ij}$ the number of games outcomes available for that pair of players in that temporal batch.
 
-\vspace{0.3cm}
+\begin{mdframed}[backgroundcolor=black!15]
+ Note that the following conclusions are based on the idea that original TrueSkill \emph{porceeds through the years (temporal batch) in order, but (within a temporal batch) goes through games outcome in random order}.
+ This is not true. 
+ Original TrueSkill algorithm does not need any temporal batch for inference.
+ So neither goes through games outcome in random order within a year or any other temporal batch.
+ By contrast, original TrueSkill sorts games before the inference stage by their game date.
+ Sometime it is true, specially in in online game, that we can find users who play more than one game at the same time.
+ In this cases it is not clear how to sort those games.
+ However, this situation never holds more than a few hours.
+ The unsorted games are an exception rather than a rule in original TrueSkill.
+ \textbf{So why the authors of TTT adopt temporal batching, unnecessary for the orginal TrueSkill?}
+ \textbf{There is a hidden reason for adopting temporal batching, only necessary for TTT?}
+ There is no problem if we add new features to an algorithm.
+ But in this case, the adoption of this new feature is badly justified.
+\end{mdframed}
+
+\begin{itemize}
+ \item Inference within a temporal batch (day, week, month) depends on the random order chosen for the update. However the results should be independent of the order of games within the temporal batch.
+ \item Information across temporal batch is only propagated forward in time, so we can not propagate information backwards.
+\end{itemize}
+
+\begin{mdframed}[backgroundcolor=black!15] 
+ What happens if we define very small and very large temporal batch. 
+ For example consider the follow three games in temporal order: A beats B, then B beats C and finally C beats A.
+ If we define \textbf{short temporal batch} such that only cover one game at a time, then there will be no within convergence step for which the results of inference should be independent of the order of games.
+ If we define \textbf{long temporal batch} such that cover all games, then there will be no time steps to propagate information backwards.
+\end{mdframed}
 
 The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
 
-\begin{verbatim}
-(s^t-1)----[f_s^t]----(s^t)----[f_s^t+1]----(s^t+1) 
-   |                    |                      |
-\end{verbatim} 
+\vspace{0.3cm}
+
+Within a temporal batch $t$, we go through the games outcomes $\vm{y}^t$ several times until convergence.
+The update for a game outcome $y^t_i(k)$ is performed by the same way as original TrueSkill but saving the upward message from the $k$ game to the individual $i$ shared skill variable $s_i^t$, $m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)$.
+So when a game outcome comes up for update again, the new downward message can be computed as, 
+\begin{equation}
+ m_{f_{p_i^t(k)} \rightarrow s_i^t}(p_i^t(k)) = \int f_{p_i^t(k)} \frac{p(s_i^t)}{m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)} ds_i^t
+\end{equation}
+
+The factor graph neighbor to a within skill variable $s_i^t$, is
+
+\begin{center}
+\tikz{ %        
+        \node[latent] (s0) {$s_i^{t-1}$} ; %
+        
+        \node[factor, right=of s0 ] (fs1) {} ;
+        \node[const, above=of fs1] (nfs1) {$f_{s_i^{t}}$}; %
+        
+        \node[latent, right=of fs1, xshift=1cm] (s1) {$s_i^t$} ; %
+        
+        \node[factor, right=of s1, xshift=1cm ] (fs2) {} ;
+        \node[const, above=of fs2] (nfs2) {$f_{s_i^{t+1}}$}; %
+        
+        \node[latent, right=of fs2] (s2) {$s_i^{t+1}$} ; %
+        
+        \node[factor, below=of s1,xshift=-2cm] (fp0) {} ;
+        \node[const, right=of fp0] (nfp0) {$f_{p_i^{t}(1)}$}; %
+        
+        \node[factor, below=of s1] (fp1) {} ;
+        \node[const, right=of fp1] (nfp1) {$f_{p_i^{t}(2)}$}; %
+        
+        \node[factor, below=of s1,xshift=2cm] (fp2) {} ;
+        \node[const, right=of fp2] (nfp2) {$f_{p_i^{t}(k)}$}; %
+        
+        \node[latent, below=of fp0] (p0) {\footnotesize$p_i^{t}(1)$} ; %
+        \node[latent, below=of fp1] (p1) {\footnotesize$p_i^{t}(2)$} ; %
+        \node[latent, below=of fp2] (p2) {\footnotesize$p_i^{t}(k)$} ; %
+        
+        
+        \edge[-] {s1} {fp0,fp1,fp2};
+        \edge[-] {fp0} {p0}
+        \edge[-] {fp1} {p1}
+        \edge[-] {fp2} {p2}
+        \edge[-] {fs1} {s0,s1};
+        \edge[-] {fs2} {s1,s2};
+} 
+\end{center}
+
+By the sum-product algorithm we know that,
+
+\begin{equation}
+ p(s_i^t) = \prod_{h \in n(s_i^t)} m_{h \rightarrow s_i^t}(s_i^t)
+\end{equation}
+
+For a player $i$ we will call:
+\begin{itemize}
+ \item \textbf{Prior (t): } $m_{f_{s^t} \rightarrow s^t}(s^t)$
+ \item \textbf{Inverse prior (t): } $m_{f_{s^{t+1}} \rightarrow s^t}(s^t)$
+ \item \textbf{Within prior (tk): } $p(s_i^t) \cdot m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)^{-1}$
+\end{itemize}
 
 
-\paragraph{Forward - First update} The update for a game outcome is performed in the same way as original TrueSkill, but saving (A) the upward messages $m_{f_p\rightarrow s}(s)$, i.e. the variational likelihood, and (C) the forward messages $m_{f_{s^{t+1}}\rightarrow s^{t+1}}(s^{t+1})$, i.e. the variational posterior.
 
 \paragraph{Backward} In the backward pass (D), the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
 
