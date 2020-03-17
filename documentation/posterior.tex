@@ -794,17 +794,6 @@ Denote the series of games outcomes between two players $i$ and $j$ within a tem
  If we define \textbf{long temporal batch} such that cover all games, then there will be no time steps to propagate information backwards.
 \end{mdframed}
 
-The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
-
-\vspace{0.3cm}
-
-Within a temporal batch $t$, we go through the games outcomes $\vm{y}^t$ several times until convergence.
-The update for a game outcome $y^t_i(k)$ is performed by the same way as original TrueSkill but saving the upward message from the $k$ game to the individual $i$ shared skill variable $s_i^t$, $m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)$.
-So when a game outcome comes up for update again, the new downward message can be computed as, 
-\begin{equation}
- m_{f_{p_i^t(k)} \rightarrow s_i^t}(p_i^t(k)) = \int f_{p_i^t(k)} \frac{p(s_i^t)}{m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)} ds_i^t
-\end{equation}
-
 The factor graph neighbor to a within skill variable $s_i^t$, is
 
 \begin{center}
@@ -844,19 +833,53 @@ The factor graph neighbor to a within skill variable $s_i^t$, is
 } 
 \end{center}
 
-By the sum-product algorithm we know that,
+By the sum-product algorithm we know that the marginal distribution of a variable $s$ is the product of the messages that their neighbors $n(s)$ send to him
 
 \begin{equation}
  p(s_i^t) = \prod_{h \in n(s_i^t)} m_{h \rightarrow s_i^t}(s_i^t)
 \end{equation}
 
+The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
+
+\vspace{0.3cm}
+
 For a player $i$ we will call:
 \begin{itemize}
- \item \textbf{Prior (t): } $m_{f_{s^t} \rightarrow s^t}(s^t)$
- \item \textbf{Inverse prior (t): } $m_{f_{s^{t+1}} \rightarrow s^t}(s^t)$
- \item \textbf{Within prior (tk): } $p(s_i^t) \cdot m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)^{-1}$
+ \item \textbf{\emph{posterior}$\bm{(t-1)}$: } $m_{s^{t-1}\rightarrow f_{s^t}}(s^{t-1}) = p(s^{t-1}) \cdot m_{f_{s^t} \rightarrow s^{t-1}}(s^{t-1})^{-1}$
+ \item \textbf{\emph{prior}$\bm{(t)}$: } $m_{f_{s^t} \rightarrow s^t}(s^t) = \int f_{s^t} \cdot \text{\emph{posterior}}(t-1) \, ds^{t-1}$
+ \item \textbf{\emph{likelihood}$\bm{(t,k)}$: } $m_{f_{p^{t}(k)} \rightarrow s^t}(s^t)$
+ \item \textbf{withinPrior(t,k): } $m_{s^t \rightarrow f_{p^t(k)}}(s^t) =  p(s^t) \cdot m_{f_{p^t(k)} \rightarrow s^t}(s^t)^{-1}$
+ \item \textbf{inversePrior (t): } $m_{f_{s^{t+1}} \rightarrow s^t}(s^t) = \int f_{s^t} \cdot \underbrace{p(s^{t+1}) \cdot m_{f_{s^{t+1}} \rightarrow s^{t+1}}(s^{t+1})^{-1}}_{\text{inversePosterior (t+1)}} ds^{t+1}$
+ \item \textbf{\emph{inversePosterior}$\bm{(t+1)}$: }
 \end{itemize}
 
+Then we can express the marginal distribution as,  
+
+\begin{equation}
+ p(s^t) =  \emph{prior}(t)\emph{inversPrior}(t) \prod_{k=1}^K^t 
+\end{equation}
+
+
+When a messages is not yet defined, like the inverse prior in the first forward pass, you can avoid it, or you can replace it by a unit scalar or by Gaussian distribution with infinite variance.
+
+
+
+\vspace{0.3cm}
+
+Within a temporal batch $t$, we go through the games outcomes $\vm{y}^t$ several times until convergence.
+The update for a game outcome $y^t_i(k)$ is performed by the same way as original TrueSkill but saving the upward message $s_i^t$, $m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)$.
+So when a game outcome comes up for update again, the new downward message can be computed as, 
+\begin{equation}
+ m_{f_{p_i^t(k)} \rightarrow s_i^t}(p_i^t(k)) = \int f_{p_i^t(k)} \cdot \underbrace{p(s_i^t) \cdot m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)^{-1}}_{\text{Within prior}} ds_i^t
+\end{equation}
+
+\vspace{0.3cm}
+
+The first forward pass is identical to the inference pass of the original TrueSkill, except that the posteriors $m_{f_{s^{t+1}} \rightarrow s^{t+1}}(s^{t+1})$ are stored.
+
+\vspace{0.3cm}
+
+In the backward pass
 
 
 \paragraph{Backward} In the backward pass (D), the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
