@@ -4,6 +4,14 @@
 
 \usetikzlibrary{bayesnet} % Para que ande se necesita copiar el archivo  tikzlibrarybayesnet.code.tex en la misma carpeta
 
+\usetikzlibrary{arrows}
+\usetikzlibrary{shapes}
+\usetikzlibrary{fit}
+\usetikzlibrary{chains}
+
+%\usetikzlibrary{shapes.geometric,positioning}
+
+
 \title{ True Skill \\ Technical Report}
 
 \author{Gustavo Landfried}
@@ -761,6 +769,117 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
 
 \section{Full TrueSkill}
 
+\begin{center}
+\tikz{ %        
+        \node[factor, xshift=-4cm] (fta) {} ;
+        \node[const, right=of fta] (nfta) {$f_{t_0}$}; %
+        \node[latent, below=of fta,yshift=-0.5cm] (ta) {$t_0$} ; %
+        
+        \node[factor] (ftb) {} ;
+        \node[const, right=of ftb] (nftb) {$f_{t_1}$}; %
+        \node[latent, below=of ftb,yshift=-0.5cm] (tb) {$t_1$} ; %
+        
+        \node[factor, xshift=4cm] (ftc) {} ;
+        \node[const, right=of ftc] (nftc) {$f_{t_2}$}; %        
+        \node[latent, below=of ftc,yshift=-0.5cm] (tc) {$t_2$} ; %
+        
+        \node[factor, below=of tb, xshift=-2cm] (fd1) {} ;
+        \node[const, left=of fd1] (nfd1) {$f_{d_0}$}; %        
+        \node[latent, below=of fd1,yshift=-0.5cm] (d1) {$d_{0}$} ; %
+        \node[factor, below=of d1,yshift=-0.5cm] (fr1) {} ;
+        
+        \node[factor, below=of tb, xshift=2cm] (fd2) {} ;
+        \node[const, above=of fd2] (nfd2) {$f_{d_{1}}$}; %        
+        \node[latent, below=of fd2,yshift=-0.5cm] (d2) {$d_{1}$} ; %
+        \node[factor, below=of d2,yshift=-0.5cm] (fr2) {} ;
+        
+        \edge[-] {ta} {fta,fd1}
+        \edge[-] {tb} {ftb,fd1,fd2}
+        \edge[-] {tc} {ftc,fd2}
+        \edge[-] {d1} {fd1,fr1}
+        \edge[-] {d2} {fd2,fr2}
+        
+        
+        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \ \ \ \textbf{3:} \emph{looseLikelihood}$(t_1)$} (tb);
+        
+        \path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend left,draw=black!50] node[midway,below,color=black!75] {\scriptsize \textbf{6:} \emph{winLikelihood}$(t_1)$} (tb);
+        
+        \path[draw, -latex, fill=black!50,sloped] (ftb) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{prior}$(t_1)$} (tb);
+        
+        
+        \path[draw, -latex, fill=black!50,sloped] (fr1) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \textbf{2:} \emph{likelihood}$(d_{0})$} (d1);
+        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \textbf{1:} \emph{prior}$(d_{0})$} (d1);
+        
+        \path[draw, -latex, fill=black!50,sloped] (fr2) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \textbf{5:} \emph{likelihood}$(d_{0})$} (d2);
+        \path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \textbf{4:} \emph{prior}$(d_{0})$} (d2);
+        
+        
+} 
+\end{center}
+
+\begin{equation}
+ p(t_e) = \emph{prior}(t_e) \cdot \emph{looseLikelihood}(t_e) \cdot \emph{winLikelihood}(t_e)
+\end{equation}
+
+\begin{equation}
+ p(d_i) = \emph{prior}(d_i) \cdot \emph{likelihood}(d_i)
+\end{equation}
+
+There is a mutual dependency between the team performance (difference) marginals, $p(d_i)$.
+That makes impossible to perform a one shot inference.
+The basic idea is to update repeatedly forward and backward all messages in the shortest path between any two marginals $p(d_i)$ until convergence.
+The messages that are not yet defined, for example the \emph{winLikelihood}$(t_1)$ in the first forward pass, must be replace it by a neutral form, like a unit scalar or a Gaussian distribution with infinite variance.
+If the messages have already been defined, then use the last available definition.
+
+\paragraph{$\bm{\emph{prior}(d_i)}$:}
+
+\begin{equation}
+ \begin{split}
+  \emph{prior}(d_{i}) = \iint \mathbb{I}(d_{i} = t_i - t_{i+1} ) \cdot \emph{prior}(t_i) \cdot \emph{prior}(t_{i+1}) \cdot \emph{winLikelihood}(t_{i+1}) \, dt_idt_{i+1} 
+ \end{split}
+\end{equation}
+
+
+\paragraph{$\bm{\widehat{\emph{likelihood}}(d_i)}$:}
+
+\begin{equation}
+\widehat{p}(d_i) = \emph{prior}(d_i) \, \widehat{\emph{likelihood}}(d_i)
+\end{equation}
+
+Following the expectation propagation algorithm, we approximate the \emph{likelihood}$(d_i)$ by approximating the marginal $p(d_i)$ via moment matching, resulting in $\widehat{p}(d_i)$ a Gaussian with the same mean and variance as $p(d_i)$.
+\begin{equation}
+\begin{split}
+ \widehat{p}(d_i) & = \emph{approx}(p(d_i)) = \emph{approx}(\emph{prior}(d_i) \cdot \emph{likelihood}(d_i)) 
+ \end{split}
+\end{equation}
+
+Then, 
+\begin{equation}
+\begin{split}
+\widehat{\emph{likelihood}}(d_i) &= \frac{\emph{approx}(\emph{prior}(d_i) \cdot \emph{likelihood}(d_i))}{ \emph{prior}(d_i)}
+\end{split}
+\end{equation}
+
+\paragraph{\emph{looseLikelihood}$\bm(t_{i+1})$:}
+
+\begin{equation}
+ \begin{split}
+  \emph{looseLikelihood}(t_{i+1}) = \int \mathbb{I}(d_i>0) \emph{prior}(t_i) \widehat{\emph{likelihood}}(d_i)
+ \end{split}
+\end{equation}
+
+
+\paragraph{\emph{winLikelihood}$\bm(t_{i})$:}
+
+\begin{equation}
+ \begin{split}
+  \emph{winLikelihood}(t_{i}) = \int \mathbb{I}(d_i>0) \emph{prior}(t_{i+1}) \widehat{\emph{likelihood}}(d_i)
+ \end{split}
+\end{equation}
+
+
+
+
 \section{TrueSkill through Time (TTT)}
 
 Consider a game in which $N$ players $\{1, \dots, N\}$ are compete over a period of $T$ time steps or temporal batch (e.g. day, week, month, year).
@@ -794,223 +913,141 @@ Denote the series of games outcomes between two players $i$ and $j$ within a tem
  If we define \textbf{long temporal batch} such that cover all games, then there will be no time steps to propagate information backwards.
 \end{mdframed}
 
-The factor graph neighbor to a within skill variable $s_i^t$, is
+The neighbor factor graph of a temporal skill variable $s_i^t$, is
 
 \begin{center}
 \tikz{ %        
         \node[latent] (s0) {$s_i^{t-1}$} ; %
         
-        \node[factor, right=of s0 ] (fs1) {} ;
+        \node[factor, right=of s0,xshift=1cm ] (fs1) {} ;
         \node[const, above=of fs1] (nfs1) {$f_{s_i^{t}}$}; %
         
-        \node[latent, right=of fs1, xshift=1cm] (s1) {$s_i^t$} ; %
+        \node[latent, right=of fs1, xshift=1.25cm] (s1) {$s_i^t$} ; %
         
-        \node[factor, right=of s1, xshift=1cm ] (fs2) {} ;
+        \node[factor, right=of s1, xshift=1.25cm ] (fs2) {} ;
         \node[const, above=of fs2] (nfs2) {$f_{s_i^{t+1}}$}; %
         
-        \node[latent, right=of fs2] (s2) {$s_i^{t+1}$} ; %
+        \node[latent, right=of fs2,xshift=1cm] (s2) {$s_i^{t+1}$} ; %
         
-        \node[factor, below=of s1,xshift=-2cm] (fp0) {} ;
+        \node[factor, below=of s1,xshift=-1.4cm,yshift=-1cm] (fp0) {} ;
         \node[const, right=of fp0] (nfp0) {$f_{p_i^{t}(1)}$}; %
         
-        \node[factor, below=of s1] (fp1) {} ;
-        \node[const, right=of fp1] (nfp1) {$f_{p_i^{t}(2)}$}; %
+        \node[factor, color=white, below=of s1] (fp1) {} ;
+        %\node[const, right=of fp1] (nfp1) {$f_{p_i^{t}(2)}$}; %
         
-        \node[factor, below=of s1,xshift=2cm] (fp2) {} ;
-        \node[const, right=of fp2] (nfp2) {$f_{p_i^{t}(k)}$}; %
+        \node[factor, below=of s1,xshift=1.4cm,yshift=-1cm] (fp2) {} ;
+        \node[const, left=of fp2] (nfp2) {$f_{p_i^{t}(k)}$}; %
         
         \node[latent, below=of fp0] (p0) {\footnotesize$p_i^{t}(1)$} ; %
-        \node[latent, below=of fp1] (p1) {\footnotesize$p_i^{t}(2)$} ; %
+        %\node[latent, below=of fp1] (p1) {\footnotesize$p_i^{t}(2)$} ; %
         \node[latent, below=of fp2] (p2) {\footnotesize$p_i^{t}(k)$} ; %
         
-        
+        %\draw[bend right=90] (fs1) arc (s1) node[midway,above]{label};
+        %\draw[bend left,->]  (fs1) to node [auto] {Link} (s1);
         \edge[-] {s1} {fp0,fp1,fp2};
-        \edge[-] {fp0} {p0}
-        \edge[-] {fp1} {p1}
-        \edge[-] {fp2} {p2}
+        \edge[-] {fp0} {p0};
+        %\edge[-] {fp1} {p1};
+        \edge[-] {fp2} {p2};
         \edge[-] {fs1} {s0,s1};
         \edge[-] {fs2} {s1,s2};
+        %\edge[bend right] {s0} {fs1};
+        \path[draw, -latex, fill=black!50] (s0) edge[bend right,draw=black!50] node[midway,below,color=black!75] {\scriptsize \emph{posterior}$(t-1)$} (fs1);
+        \path[draw, -latex, fill=black!50] (fs1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{prior}$(t)$} (s1);
+        \path[draw, -latex, fill=black!50] (s2) edge[bend left,draw=black!50] node[midway,below,color=black!75] {\scriptsize \emph{\ \ inversePosterior}$(t+1)$} (fs2);
+        \path[draw, -latex, fill=black!50] (fs2) edge[bend right,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{inversePrior}$(t)$} (s1);
+        \path[draw, -latex, fill=black!50,sloped] (fp0) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{likelihood}$(t,k)$} (s1);
+        \path[draw, -latex, fill=black!50,sloped] (s1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{\ \ withinPrior}$(t,k)$} (fp2);
 } 
 \end{center}
 
-By the sum-product algorithm we know that the marginal distribution of a variable $s$ is the product of the messages that their neighbors $n(s)$ send to him
+The arrows represents messages computed by the sum-product algorithm.
+The names were selected for the sole purpose of simplifying the notation.
+By the sum-product algorithm we know that the marginal distribution any variable is the product of the messages the variable receives from its neighbors,
 
 \begin{equation}
- p(s_i^t) = \prod_{h \in n(s_i^t)} m_{h \rightarrow s_i^t}(s_i^t)
+ p(s^t) = \prod_{h \in n(s^t)} m_{h \rightarrow s^t}(s^t)
 \end{equation}
 
-The basic idea is to update repeatedly on the same game outcomes but making sure that the effect of the previous update on that game outcome is removed before the new effect is added.
-
-\vspace{0.3cm}
-
-For a player $i$ we will call:
-\begin{itemize}
- \item \textbf{\emph{posterior}$\bm{(t-1)}$: } $m_{s^{t-1}\rightarrow f_{s^t}}(s^{t-1}) = p(s^{t-1}) \cdot m_{f_{s^t} \rightarrow s^{t-1}}(s^{t-1})^{-1}$
- \item \textbf{\emph{prior}$\bm{(t)}$: } $m_{f_{s^t} \rightarrow s^t}(s^t) = \int f_{s^t} \cdot \text{\emph{posterior}}(t-1) \, ds^{t-1}$
- \item \textbf{\emph{likelihood}$\bm{(t,k)}$: } $m_{f_{p^{t}(k)} \rightarrow s^t}(s^t)$
- \item \textbf{withinPrior(t,k): } $m_{s^t \rightarrow f_{p^t(k)}}(s^t) =  p(s^t) \cdot m_{f_{p^t(k)} \rightarrow s^t}(s^t)^{-1}$
- \item \textbf{inversePrior (t): } $m_{f_{s^{t+1}} \rightarrow s^t}(s^t) = \int f_{s^t} \cdot \underbrace{p(s^{t+1}) \cdot m_{f_{s^{t+1}} \rightarrow s^{t+1}}(s^{t+1})^{-1}}_{\text{inversePosterior (t+1)}} ds^{t+1}$
- \item \textbf{\emph{inversePosterior}$\bm{(t+1)}$: }
-\end{itemize}
-
-Then we can express the marginal distribution as,  
+Replaced the messages by the selected names, this distribution can be expressed as, 
 
 \begin{equation}
- p(s^t) =  \emph{prior}(t)\emph{inversPrior}(t) \prod_{k=1}^K^t 
+ p(s_i^t) = \emph{prior}_i(t) \cdot \emph{inversePrior}_i(t) \cdot \prod_{k=1}^{K_i^t} \emph{likelihood}_i(t,k)
 \end{equation}
 
-
-When a messages is not yet defined, like the inverse prior in the first forward pass, you can avoid it, or you can replace it by a unit scalar or by Gaussian distribution with infinite variance.
-
-
-
-\vspace{0.3cm}
-
-Within a temporal batch $t$, we go through the games outcomes $\vm{y}^t$ several times until convergence.
-The update for a game outcome $y^t_i(k)$ is performed by the same way as original TrueSkill but saving the upward message $s_i^t$, $m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)$.
-So when a game outcome comes up for update again, the new downward message can be computed as, 
-\begin{equation}
- m_{f_{p_i^t(k)} \rightarrow s_i^t}(p_i^t(k)) = \int f_{p_i^t(k)} \cdot \underbrace{p(s_i^t) \cdot m_{f_{p_i^t(k)} \rightarrow s_i^t}(s_i^t)^{-1}}_{\text{Within prior}} ds_i^t
-\end{equation}
+There is a mutual dependency between forward and backward messages that make imposible a one shot inference iteration.
+The basic idea is to update repeatedly forward and backward until convergence, making sure that the effect of the previous update is removed before the new effect is added.
+The messages that are not yet defined, for example the inverse prior in the first forward pass, are replace it with by a neutral form like a unit scalar or a Gaussian distribution with infinite variance.
 
 \vspace{0.3cm}
 
-The first forward pass is identical to the inference pass of the original TrueSkill, except that the posteriors $m_{f_{s^{t+1}} \rightarrow s^{t+1}}(s^{t+1})$ are stored.
-
-\vspace{0.3cm}
-
-In the backward pass
-
-
-\paragraph{Backward} In the backward pass (D), the backward message $m_{{f_{s^t}}\rightarrow s^{t-1}}(s^{t-1})$ serve as the new prior for time step $t-1$.
-
-\begin{verbatim}
-(s^t-1)<=<=[f_s^t]----(s^t)<-<-[f_s^t+1]----(s^t+1) 
-   |                    ^                      |
-                        ^
-\end{verbatim} 
-
-By the rules of the sum-product algorithm this message is,
+\paragraph{\emph{posterior}$\bm{_i(t-1)}$:}
 
 \begin{equation}
 \begin{split}
- \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int f_{s^t} \overbrace{m_{s^t \rightarrow f_s^t}(s^t)}^{\text{Inverse posterior $t$}} \\
- & = \int f_{s^t} \underbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}_{\text{Last likelihood $t$}} \underbrace{m_{f_{s^{t+1}}\rightarrow s^t}(s^t)}_{\text{Back prior $t$ }}
-\end{split}
+  \emph{posterior}_i(t-1)&= m_{s_i^{t-1}\rightarrow f_{s_i^t}}(s_i^{t-1}) \\ 
+ &= \emph{prior}_i(t-1) \cdot \prod_{k=1}^{K_i^{t-1}} \emph{likelihood}_i(t-1,k)\\
+ &= p(s_i^{t-1}) \, \emph{inversePrior}_i(t-1)^{-1}
+ \end{split}
 \end{equation}
 
-When $t$ is an endpoint then this message it is simplified as,
-
-\begin{equation}
- \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} = \int f_{s^t} \overbrace{m_{f_{p^t}\rightarrow s^t}(s^t)}^{\text{Last likelihood $t$}}
-\end{equation}
-% 
-% The endpoint back message will be,
-% 
-% \begin{equation}
-% \begin{split}
-% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{last like}^t},\sigma_{\text{last like}^t}^2)}^{\text{Last likelihood $t$}} ds^t \\
-% & \propto \N(s^{t-1}|\mu_{\text{last like}^t},\sigma_{\text{last like}^t}^2 + \tau^2)
-% \end{split}
-% \end{equation}
-% 
-% The non endpoint back message will be,
-% 
-% \begin{equation}
-% \begin{split}
-% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2)}^{\text{Last likelihood $t$}}  \overbrace{m_{f_{s^{t+1}}\rightarrow s^t}(s^t)}^{\text{Back prior $t$ }} ds^t 
-% \end{split}
-% \end{equation}
-% 
-% The first non endpoint
-% 
-% \begin{equation}
-% \begin{split}
-% \overbrace{m_{f_{s^t}\rightarrow s^{t-1}}(s^{t-1})}^{\text{Back prior $t-1$}} &= \int \overbrace{\N(s^{t}|s^{t-1},\tau^2)}^{f_{s^t}} \overbrace{\N(s^t|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2)}^{\text{Last likelihood $t$}} \overbrace{\N(s^{t}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \tau^2)}^{\text{First back prior}} ds^t \\
-% & = \N(s^{t-1}|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2 + \tau^2) \int \N(s^t | \mu_{\times}, \sigma_{\times}^2)\N(s^{t}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \tau^2) ds^t \\
-% & \propto  \N(s^{t-1}|\mu_{\text{like}^t},\sigma_{\text{like}^t}^2 + \tau^2) \N(\underbrace{\mu_{\times}}_{\mu_{\times}(s^{t-1})}|\mu_{\text{like}^{t+1}},\sigma_{\text{like}^{t+1}}^2 + \sigma_{\text{like}^{t+1}}^2 + \tau^2) 
-% \end{split}
-% \end{equation}
-
-
-
-
-
-\paragraph{Update again} When a game outcome comes up for update again, the new downward message $m_{{f_p}\rightarrow p}(p)$ can be calculated by
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
+ \paragraph{\emph{prior}$_i\bm{(t)}$:}
+ 
+ \begin{equation}
+ \begin{split}
+  \emph{prior}_i(t) &= m_{f_{s_i^t} \rightarrow s_i^t}(s_i^t) \\
+  &= \int f_{s^t} \cdot \emph{posterior}_i(t-1) \, ds_i^{t-1}
+  \end{split}
+ \end{equation}
+
+ \paragraph{\emph{likelihood}$_i\bm{(t,k)}$:}
+ 
+ \begin{equation}
+ \begin{split}
+  \emph{likelihood}_i(t,k) &= m_{f_{p^{t}(k)} \rightarrow s^t}(s^t) \\
+  &= \emph{trueSkillVariationalLikelihood}_i(t,k)
+  \end{split}
+ \end{equation}
+ 
+ \paragraph{\emph{withinPrior}$_i\bm{(t,k)}$:}
+
+ 
+ \begin{equation}
+ \begin{split}
+ \emph{withinPrior}_i(t,k) &= m_{s_i^t \rightarrow f_{p_i^t(k)}}(s_i^t)  \\
+ &= \emph{prior}_i(t) \cdot \emph{inversePrior}_i(t) \cdot \prod_{q=1, q\neq k}^{K_i^t} \emph{likelihood}_i(t,q) \\
+ &= p(s_i^t) \cdot \emph{likelihood}_i(t,k)^{-1}
+  \end{split}
+ \end{equation}
+ 
+ \paragraph{\emph{inversePrior}$\bm{_i(t)}$: }
+ 
+ \begin{equation}
+ \begin{split}
+ \emph{inversePrior}_i(t) &= m_{f_{s_i^{t+1}} \rightarrow s_i^t}(s_i^t) \\
+ &= \int f_{s_i^{t+1}} \cdot \emph{inversePosterior}_i(t+1) \, ds_i^{t+1}
+ \end{split}
+ \end{equation}
+  
+  \paragraph{\emph{inversePosterior}$\bm{_i(t+1)}$: }
+  
+ \begin{equation}
+ \begin{split}
+ \emph{inversePosterior}_i(t+1) &= m_{s_i^{t+1} \rightarrow f_{s_i^{t+1}}}(s_i^{t+1}) \\
+ &= \emph{inversePrior}_i(t+1) \cdot \prod_{k=1}^{K_i^{t+1}} \emph{likelihood}_i(t+1,k) \\
+ &= p(s_i^{t+1}) \cdot \emph{prior}_i(t+1)^{-1}
+ \end{split}
+ \end{equation}
+
+\subsection{Convergence}
+
+\paragraph{Temporal batch} Within a temporal batch $t$, we go through the games outcomes $\vm{y}^t$ several times until convergence.
+The update for a game outcome $y^t_i(k)$ is performed by the same way as original TrueSkill using as prior the \emph{withinPrior}$_i(t,k)$ and saving the \emph{likelihood}$_i(t,k)$.
+
+\paragraph{Forward-Backward Propagation}
+At each forward pass we store each forward message, i.e. \emph{prior}$_i(t+1)$.
+And at each backward pass we compute the backward message, i.e. \emph{inversePrior}$_i(t-1)$.
+This messages, together with the last stored \emph{likelihood}$_i(t,k)$, will be used to compute each \emph{withinPrior}$_i(t,k)$ at the temporal batch.
 
 
 
