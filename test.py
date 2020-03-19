@@ -4,15 +4,26 @@ import numpy as np
 from importlib import reload  # Python 3.4+ only.
 reload(th)
 from collections import defaultdict
+import matplotlib.pyplot as plt
 
+
+time = th.Time([[[1],[2]],[[1],[3]],[[2],[3]]],[[0,1],[1,0],[0,1]])
+
+time.forward_priors[1].posterior(th.Gaussian())
+time.within_priors(1)
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
-history.forward
+history.forward_prior
+trueskill_learning_curve = history.learning_curve.copy()
 
 history.backpropagation()
-history.backward
+history.backward_prior
 history.propagation()
-history.forward
+history.forward_prior
+for k in history.learning_curve.keys():
+    colores = ['red', 'blue', 'green']
+    plt.plot(history.learning_curve[k],color=colores[k-1] )
+    plt.plot(trueskill_learning_curve[k],color=colores[k-1])
 
 learning_curve = defaultdict(lambda: [] ) 
 forgeting_curve = defaultdict(lambda: [] ) 
@@ -26,12 +37,16 @@ for n in history.forward.keys():
 
 
 
-history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5)
-history.forward
+history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5,default=th.Rating(mu=25,sigma=250,beta=25/6))
+history.forward_prior
+trueskill_learning_curve = history.learning_curve.copy()
+
 history.backpropagation()
-history.backward
+history.backward_prior
 history.propagation()
-history.forward
+history.forward_prior
+for k in history.learning_curve.keys():
+    plt.plot(history.learning_curve[k])
 
 history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6]]*4,[[0,1],[1,0],[0,1]]*4+[[0,1]]*4)
 history.forward

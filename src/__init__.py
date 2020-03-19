@@ -144,117 +144,16 @@ class Rating(Gaussian):
         return np.random.normal(*self.performance)       
     
     def posterior(self,other):
-        return Rating(self*other,self.env,self.beta,self.noise)
+        res = self*other
+        return Rating(res.mu, res.sigma,self.env,self.beta,self.noise)
     
     def __repr__(self):
         c = type(self)
         if self.env is None:
-            args = ( c.__name__,*iter(self))
+            args = ( c.__name__,*iter(self),self.beta)
         else: 
-            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
-        return '%s(mu=%.3f, sigma=%.3f)' % args
-
-
-class Handicap(Gaussian):
-    """ Skill belief distribution
-    """
-    def __init__(self, mu=None, sigma=None, env=None):
-        if isinstance(mu, tuple):
-            mu, sigma = mu
-        elif isinstance(mu, Gaussian):
-            mu, sigma = mu.mu, mu.sigma
-        if mu is None:
-            mu = global_env().mu_player
-        if sigma is None:
-            sigma = global_env().sigma_player
-        self.env = env
-        super(Skill, self).__init__(mu, sigma)
-    
-    @property
-    def noise(self):
-        return self.env.tau_player if not self.env is None else global_env().tau_player    
-    
-    @property
-    def beta(self):
-        return self.env.beta_player if not self.env is None else global_env().beta_player    
-    
-    @property
-    def forget(self):
-        self.modify(Gaussian(self,self.noise))
-        return self
-    
-    @property
-    def performance(self):
-        return Gaussian(self,self.beta)
-
-    def posterior(self,other):
-        return Handicap(self*other,self.env)
-    
-    def play(self):
-        return np.random.normal(*self.performance)
-
-    def modify(self, other):
-        super(Skill, self).modify(other)
-
-    def __repr__(self):
-        c = type(self)
-        if self.env is None:
-            args = ( c.__name__,*iter(self))
-        else: 
-            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
-        return '%s(mu=%.3f, sigma=%.3f)' % args
-
-
-
-class Synergy(Gaussian):
-    """ Synergy belief distribution
-    """
-
-    def __init__(self, mu=None, sigma=None, env=None):
-        if isinstance(mu, tuple):
-            mu, sigma = mu
-        elif isinstance(mu, Gaussian):
-            mu, sigma = mu.mu, mu.sigma
-        if mu is None:
-            mu = global_env().mu_teammate
-        if sigma is None:
-            sigma = global_env().sigma_teammate
-        self.env = env
-        super(Synergy, self).__init__(mu, sigma)
-
-    @property
-    def noise(self):
-        return self.env.tau_teammate if not self.env is None else global_env().tau_teammate    
-    
-    @property
-    def beta(self):
-        return self.env.beta_teammate if not self.env is None else global_env().beta_teammate    
-    
-    @property
-    def forget(self):
-        self.modify(Gaussian(self,self.noise))
-        return self
-    
-    @property
-    def performance(self):
-        return Gaussian(self,self.beta)
-    
-    def posterior(self,other):
-        return Synergy(self*other,self.env)
-        
-    def play(self):
-        return np.random.normal(*self.performance)
-
-    def modify(self, other):
-        super(Skill, self).modify(other)
-
-    def __repr__(self):
-        c = type(self)
-        if self.env is None:
-            args = ( c.__name__,*iter(self))
-        else: 
-            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
-        return '%s(mu=%.3f, sigma=%.3f)' % args 
+            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self),self.beta)
+        return '%s(mu=%.3f, sigma=%.3f, beta=%.3f)' % args
 
 class Team(object):
     def __init__(self, skills=None, synergys=None):
@@ -297,7 +196,13 @@ class Team(object):
         return Gaussian(self.mu - self[key].mu, np.sqrt(self.sigma**2 - self[key].sigma**2))
     
     def __repr__(self):
-        return '{}{}'.format("Team",tuple(self.performance) )
+        res = 'Team('
+        res += '{}'.format(self.ratings[0])
+        for r in range(1,len(self.ratings)):
+            res += ', '
+            res += '{}'.format(self.ratings[r])
+        res += ')'
+        return res
 
 class Game(object):
     
@@ -327,6 +232,10 @@ class Game(object):
         self.vanilla_likelihood = self.compute_likelihood()
         self.vanilla_posterior = self.compute_posterior()
         self.vanilla_evidence = self.compute_evidence()
+        self.likelihood = self.vanilla_likelihood
+        self.posterior = self.vanilla_posterior 
+        self.evidence = self.vanilla_evidence 
+        
         self.last_posterior, self.last_likelihood, self.last_evidence = self.vanilla_posterior , self.vanilla_likelihood, self.vanilla_evidence
     
     def sortTeams(self,teams,results):
@@ -481,46 +390,168 @@ class Game(object):
     def __repr__(self):
         c = type(self)
         return '{}({},{})'.format(c.__name__,self.teams,self.o)
-            
+
+class Time(object):
+    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) ,epsilon=10**-3):
+        """
+        games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
+        """
+        self.games_composition = games_composition
+        self.results = results
+        self.players = set(flat(flat(games_composition) ))
+        self.played = {}
+        for i in self.players:
+            self.played[i] = self.games_played(i) 
+        self.forward_priors = {}
+        for i in self.players:
+            self.forward_priors[i] = forward_priors[i]
+        self.backward_priors = defaultdict(lambda: Gaussian())
+        self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
+        self.epsilon = epsilon
+        #self.convergence()
+    
+    
+    def __len__(self):
+        return len(self.games_composition)
+    
+    def games_played(self,i):
+        res = []
+        for g in range(len(self)):
+            if i in flat(self.names(g)): res.append(g)
+        return set(res)
+    
+    def time_likelihood(self,i):
+        return np.prod([ self.likelihoods[i][k]  for k in self.played[i] ])
+    
+    def forward_posterior(self,i):
+        return self.time_likelihood(i)*self.forward_priors[i]
+    
+    def backward_posterior(self,i):
+        return self.time_likelihood(i)*self.backward_priors[i]
+    
+    def posterior(self,i):
+        return self.forward_priors[i].posterior(self.time_likelihood(i)*self.backward_priors[i])
+    
+    @property
+    def posteriors(self):
+        res = {}
+        for i in self.players:
+            res[i] = self.posterior[i] 
+        return res
+    
+    def within_prior(self,i,g):
+        return self.posterior(i)/self.likelihoods[i][g] 
+    
+    def within_priors(self,g):
+        teams = self.games_composition[g]
+        return [ [self.within_prior(i,g) for i in te] for te in teams]
+
+    def teams(self,g):
+        return len(self.games_composition[g])
+    
+    def names(self,g):
+        return self.games_composition[g]
+
+    def iteration(self):
+        max_delta = 0
+        for g in range(len(self)):
+            game = Game(self.within_priors(g),self.results[g],self.games_composition[g])
+            for te in range(self.teams(g)):
+                for i in range(te):
+                    n = self.names(g)[te][i]
+                    max_delta = max(abs(game.likelihood[te][i] - self.likelihoods[n][g]),max_delta)
+                    self.likelihoods[n][g] = game.likelihood[te][i]
+        return max_delta
+    
+    def convergence(self):
+        delta = np.inf
+        iterations = 0
+        while delta > self.epsilon:
+            delta = max(self.iteration())
+            iterations += 1
+        return iterations
+
+    
 class History(object):
-    def __init__(self, names, results, times=None, epsilon=10**-3):
+    def __init__(self
+                 , games_composition
+                 , results
+                 , times=None
+                 , temporal_batch_length=None
+                 , prior_dict = {} 
+                 , default=Rating(mu=25,sigma=25/3,beta=25/6,noise=25/300)
+                 , epsilon=10**-3):
         """
         names: list of composition [[1,2],[1,3]] or [[[1],[2]],[[1,2],[3]]]
         results : list of result
         times : list of time
         """
-        self.names = names
+        self.games_composition = games_composition
         self.results = results
         self.times = times
+        self.temporal_batch_length = temporal_batch_length#seconds_in_year = 365.25 * 24 * 60 * 60
         self.epsilon = epsilon
-        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
-        self.backward = defaultdict(lambda: Gaussian()) 
+        
+        self.initial_prior= defaultdict(lambda: default)
+        self.initial_prior.update(prior_dict)
+        
+        self.forward_prior = self.initial_prior.copy()
+        self.backward_prior = defaultdict(lambda: Gaussian()) 
+        
+        self.learning_curve = {}
+        
+        #self.last_forward_time = {}
+        #self.last_backward_time = {}
+        self.temporal_batch = []
         self.games = []
+        #ipdb.set_trace()
         self.create_games()
-    
+        self.create_setps()
+        
+        
     def __len__(self):
-        return len(self.names)
+        return len(self.games_composition)
     
-    def update_forward(self,names, posterior):
+    def update_forward(self, names, posterior):
         for i in range(len(names)):
-            self.forward[names[i]] = posterior[i]
+            self.forward_prior[names[i]] = posterior[i]
 
     def update_backward(self,names,inverse_posterior):
         for i in range(len(names)):
-            self.backward[names[i]] = inverse_posterior[i]
+            self.backward_prior[names[i]] = inverse_posterior[i]
+
+    def update_learning_curve(self, g):
+        names = flat(self.games_composition[g])
+        for i in range(len(names)):
+            n = names[i]
+            if not n in self.learning_curve:
+                self.learning_curve[n] = [self.initial_prior[n]]
+            #ipdb.set_trace()
+            self.learning_curve[n].append(np.prod([flat(self.games[g].last_likelihood)[i],self.forward_prior[n],self.backward_prior[n]]) )
+
+    def create_history(self):
+        if not self.times is None:
+            print("Implementar temporal batch")
+        for g in range(len(self)):#g=0
+            new_time = Time(self.games_composition[g:(g+1)],self.forward_prior)
+            self.temporal_batch.append()
+
+            
+        
 
     def add_game(self,g):
-        teams = [[self.forward[i] for i in ti ] if isinstance(ti, list) else [self.forward[ti]] for ti in self.names[g] ]
-        self.games.append(Game(teams,self.results[g],self.names[g]))
-        self.update_forward(flat(self.names[g]),flat(self.games[-1].last_posterior))
+        teams = [[self.forward_prior[i] for i in ti ] if isinstance(ti, list) else [self.forward_prior[ti]] for ti in self.games_composition[g] ]
+        self.games.append(Game(teams,self.results[g],self.games_composition[g]))
+        self.update_forward(flat(self.games_composition[g]),flat(self.games[-1].last_posterior))
+        self.update_learning_curve(g)
     
     def create_games(self):
         for g in range(len(self)):#g=0
             self.add_game(g)
-
+    
     def append(self, names, results, times=None):
         n = len(self)
-        self.names += names
+        self.games_composition += names
         self.results += results
         self.times += times
         m = len(self)
@@ -529,9 +560,9 @@ class History(object):
     
     def backpropagation(self):
         delta = np.inf
-        self.backward = defaultdict(lambda: Gaussian()) 
+        self.backward_prior = defaultdict(lambda: Gaussian()) 
         for g in reversed(range(len(self))):#g=2
-            inverse_prior = [ [ self.backward[n] for n in ns] for ns in self.games[g].names]
+            inverse_prior = [ [ self.backward_prior[n] for n in ns] for ns in self.games[g].names]
             for e in range(len(self.games[g])):#n=2
                 self.games[g].teams[e].back_info(inverse_prior[e])
             likelihood, _ = self.games[g].update
@@ -542,13 +573,15 @@ class History(object):
     
     def propagation(self):
         delta = np.inf
-        self.forward = defaultdict(lambda: Skill(mu=25,sigma=25/3))
+        self.forward_prior = self.initial_prior.copy()
+        self.learning_curve = defaultdict(lambda: [])
         for g in range(len(self)):#g=2
-            prior = [ [ self.forward[n] for n in ns] for ns in self.games[g].names]
+            prior = [ [ self.forward_prior[n] for n in ns] for ns in self.games[g].names]
             for e in range(len(self.games[g])):#n=2
                 self.games[g].teams[e].for_info(prior[e])
             _, posterior = self.games[g].update
             self.update_forward(flat(self.games[g].names),flat(posterior))
+            self.update_learning_curve(g)
         return delta
     
     def converge(self):
@@ -557,7 +590,6 @@ class History(object):
             delta_b = self.backpropagation()
             self.reset_forward()
             delta_f = self.propagation()
-        
         
     def evidence(self):
         pass
@@ -599,15 +631,7 @@ class TrueSkill(object):
         if sigma is None:
             sigma = self.sigma_player
         return Skill(mu, sigma, self)   
-    
-    def synergy(self, mu=None, sigma=None):
-        """Initializes new :class:"""
-        if mu is None:
-            mu = self.mu_teammate
-        if sigma is None:
-            sigma = self.sigma_teammate
-        return Synergy(mu, sigma, self)   
-    
+        
     
     def team(self, players= None, teammates=None):
         skills = [ self.Skill(*s) for s in players]
@@ -624,10 +648,6 @@ class TrueSkill(object):
     @property
     def Skill(self):
         return self.skill
-    
-    @property
-    def Synergy(self):
-        return self.synergy
     
     @property
     def Team(self):
