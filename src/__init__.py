@@ -135,6 +135,9 @@ class Rating(Gaussian):
         res = self*other
         return Rating(res.mu, res.sigma,self.env,self.beta,self.noise)
     
+    def inherit(self,other):
+        return Rating(other.mu, other.sigma,self.env, self.beta, self.noise)
+    
     def __repr__(self):
         c = type(self)
         if self.env is None:
@@ -380,13 +383,13 @@ class Game(object):
         return '{}({},{})'.format(c.__name__,self.teams,self.o)
 
 class Time(object):
-    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , time_step=None,epsilon=10**-3):
+    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=10**-3):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
         self.games_composition = games_composition
         self.results = results
-        self.time_step = time_step
+        self.batch_number = batch_number
         self.players = set(flat(flat(games_composition) ))
         self.played = {}
         for i in self.players:
@@ -394,6 +397,7 @@ class Time(object):
         self.forward_priors = {}
         for i in self.players:
             self.forward_priors[i] = forward_priors[i]
+        
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
         self.epsilon = epsilon
@@ -413,10 +417,12 @@ class Time(object):
         return np.prod([ self.likelihoods[i][k]  for k in self.played[i] ])
     
     def forward_posterior(self,i):
-        return self.time_likelihood(i)*self.forward_priors[i]
+        return self.forward_priors[i].filtered(self.time_likelihood(i))
     
     def backward_posterior(self,i):
-        return self.time_likelihood(i)*self.backward_priors[i]
+        #ipdb.set_trace()
+        res = self.time_likelihood(i)*self.backward_priors[i]
+        return self.forward_priors[i].inherit(res)
     
     def posterior(self,i):
         return self.forward_priors[i].filtered(self.time_likelihood(i)*self.backward_priors[i])
@@ -472,79 +478,110 @@ class Time(object):
         iterations = 0
         while delta > self.epsilon:
             delta = self.iteration()
-            print(delta)
+            #print(delta)
             iterations += 1
         return iterations
+    
+    def backward_info(self,backward_priors):
+        for i in self.players:
+            self.backward_priors[i] = backward_priors[i]
+        return self.convergence()
+        
+    def forward_info(self,forward_priors):
+        for i in self.players:
+            self.forward_priors[i] = forward_priors[i]
+        return self.convergence()
+        
+    def __repr__(self):
+        c = type(self)
+        return '{}{}'.format(c.__name__,tuple(zip(self.games_composition,self.results)))
 
 class History(object):
     def __init__(self
                  , games_composition
                  , results
-                 , times=None
-                 , time_step=0
+                 , batch_numbers=None
                  , prior_dict = {} 
                  , default=Rating(mu=25,sigma=25/3,beta=25/6,noise=25/300)
                  , epsilon=10**-3):
-        self.games_composition = map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition)
+        self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
-        self.times = times
-        if not self.times is None:
-            self.games_composition, self.results, self.times = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.times), key=lambda x: x[2]))))
-            # = list(zip(*sorted(zip(self.games_composition,self.results, self.times), key=lambda x: x[2])))
-            #teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
-            #teams_sorted , index_sorted, _ = list(zip(*teams_index_sorted )) 
-    
-            
-        #seconds_in_year = 365.25 * 24 * 60 * 60
-        if time_step == 'seconds':
-            self.time_step = timedelta(seconds=1)
-        if time_step == 'minutes':
-            self.time_step = timedelta(minutes=1)
-        if time_step == 'days':
-            self.time_step = timedelta(days=1)
-        if time_step == 'weeks':
-            self.time_step = timedelta(weeks=1)
-        #if time_step = "months":
-        #    self.time_step = timedelta(months=1)
-        
+        self.batch_numbers = batch_numbers
+        if not self.batch_numbers is None:
+            self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
             
         self.default = default
         self.epsilon = epsilon
                 
         self.initial_prior= defaultdict(lambda: self.default)
         self.initial_prior.update(prior_dict)
-        
         self.forward_priors = self.initial_prior.copy()
         self.backward_priors = defaultdict(lambda: Gaussian()) 
         
-        self.time_line = []
+        self.times = []
         
         self.learning_curve = {}
+        
+        self.through_time()
     
-    def update_index(self,i,t):
+    def end_batch(self,i):
+        t = None if self.batch_numbers is None else self.batch_numbers[i]
         j = i + 1
-        while (j < len(self)) and (self.times[j] <= t):
+        while (j < len(self)) and (not t is None) and (self.batch_numbers[j] <= t):
             j += 1
         return j
     
-    #def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , time_step=None,epsilon=10**-3):
-    def create_time_line_with_time(self):
-        i = 0; 
+    #def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=10**-3):
+    def trueSkill(self):
+        i = 0; j = 0
+        #ipdb.set_trace()
         while i < len(self):
-            t = self.times[i]
-            j = self.update_index(i,t+self.time_step)
+            t = None if self.batch_numbers is None else self.batch_numbers[i]
+            j = self.end_batch(i)
             time = Time(games_composition = self.games_composition[i:j]
                         ,results = self.results[i:j]
                         ,forward_priors = self.forward_priors
-                        ,self.times[i:j]
-                        )
-            self.time_line.append(time)
+                        ,batch_number = t
+                        ,epsilon = self.epsilon
+            )
+            self.forward_priors.update(time.forward_posteriors)
+            self.times.append(time)
             i = j 
+    
+    def delta(self,new,old):
+        return np.max([ abs(new[i].mu - old[i].mu) for i in old])
+    
+    def backward_propagation(self):
+        delta = 0
+        for t in reversed(range(len(self)-1)):
+            self.backward_priors.update(self.times[t+1].backward_posteriors)
+            old = self.times[t].posteriors
+            self.times[t].backward_info(self.backward_priors)
+            new = self.times[t].posteriors
+            delta = max(self.delta(new,old),delta)
+        self.backward_priors = defaultdict(lambda: Gaussian())
+        return delta
+    
+    def forward_propagation(self):
+        self.forward_priors = self.initial_prior.copy()
+        delta = 0
+        for t in range(1,len(self)):
+            self.forward_priors.update(self.times[t-1].forward_posteriors)
+            old = self.times[t].posteriors
+            self.times[t].forward_info(self.forward_priors)
+            new = self.times[t].posteriors
+            delta = max(self.delta(new,old),delta)
+        self.forward_priors.update(self.times[t].forward_posteriors)
+        return delta
             
-            
-            
-            
-        
+    def through_time(self):
+        self.trueSkill()
+        delta = np.inf
+        #ipdb.set_trace()
+        while delta > self.epsilon:
+            delta = min(self.backward_propagation(),delta)
+            delta = min(self.forward_propagation(),delta)
+            print(delta)
         
     def __len__(self):
         return len(self.games_composition)

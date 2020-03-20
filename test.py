@@ -6,17 +6,26 @@ reload(th)
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
-from datetime import datetime
-
-from datetime import datetime
-from datetime import timedelta
-since = datetime( 1970, 8, 15, 6, 0, 0 )
-
-int(since.strftime('%s'))
+history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6],[2,5],[1,4]],[[0,1],[1,0],[0,1]]*4+[[0,1]]*3)
+history.forward_priors
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]],[2,3,1])
+history.times[0].posteriors 
+history.times[1].posteriors 
+history.times[2].posteriors
+history.forward_priors
 
-history.times
+[i for i in history.times[1].posteriors.items()]
+
+history.backward_priors[2]/history.times[1].forward_priors[2] 
+
+list(map(lambda i: history.backward_priors[i]/history.times[0].forward_priors[i] , history.times[0].forward_priors) )
+
+history.times[0].posteriors
+history.times[1].posteriors
+history.times[2].posteriors
+history.forward_priors
+
 history.results
 history.games_composition
 
