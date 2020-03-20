@@ -6,13 +6,39 @@ reload(th)
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
+from datetime import datetime
+
+from datetime import datetime
+from datetime import timedelta
+since = datetime( 1970, 8, 15, 6, 0, 0 )
+
+int(since.strftime('%s'))
+
+history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]],[2,3,1])
+
+history.times
+history.results
+history.games_composition
+
+
+th.Gaussian()/th.Gaussian(25,3)
 
 time = th.Time([[[1],[2]],[[1],[3]],[[2],[3]]],[[0,1],[1,0],[0,1]])
+time.posteriors
+time.likelihoods
+time.forward_posteriors
+time.backward_posteriors
 
-time.forward_priors[1].posterior(th.Gaussian())
+time.forward_priors[1].posterior()
 time.within_priors(1)
 
-history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]])
+time.convergence()
+
+history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]],[2,3,1])
+
+
+history.results
+history.times
 history.forward_prior
 trueskill_learning_curve = history.learning_curve.copy()
 

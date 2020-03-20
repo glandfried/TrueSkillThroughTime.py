@@ -6,14 +6,10 @@ print("""
    :copyright: (c) 2019-2020 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """)
-import time
-#from scipy.stats import norm
 from scipy.stats import entropy
 import numpy as np
-#import matplotlib.pyplot as plt
-import copy
-#import trueskill as ts
-#env = ts.TrueSkill(draw_probability=0,tau=0)
+from datetime import datetime
+from datetime import timedelta
 from collections import defaultdict
 from collections.abc import Iterable
 from .mathematics import Gaussian
@@ -23,18 +19,10 @@ import ipdb
 BETA = 25/6
  
 __all__ = [
-    # TrueSkill objects
     'TrueSkill', 'Rating' , 'Skill', 'Synergy',
-    # functions for the global environment
-    #'rate', 'quality', 'rate_1vs1', 'quality_1vs1', 'expose',
     'global_env', 'setup',
-    # default values
     'MU_PLAYER', 'SIGMA_PLAYER', 'BETA_PLAYER', 'TAU_PLAYER', 'DRAW_PROBABILITY',
     'MU_TEAMMATE', 'SIGMA_TEAMMATE', 'BETA_TEAMMATE', 'TAU_TEAMMATE'
-    # draw probability helpers
-    #'calc_draw_probability', 'calc_draw_margin',
-    # deprecated features
-    #'transform_ratings', 'match_quality', 'dynamic_draw_probability',
 ]
 
 #: Default initial mean of players.
@@ -98,7 +86,7 @@ class Skill(Gaussian):
     def play(self):
         return np.random.normal(*self.performance)
 
-    def posterior(self,other):
+    def filtered(self,other):
         return Skill(self*other,self.env)
     
     #def modify(self, other):
@@ -143,7 +131,7 @@ class Rating(Gaussian):
     def play(self):
         return np.random.normal(*self.performance)       
     
-    def posterior(self,other):
+    def filtered(self,other):
         res = self*other
         return Rating(res.mu, res.sigma,self.env,self.beta,self.noise)
     
@@ -360,7 +348,7 @@ class Game(object):
     def compute_posterior(self):    
         prior = self.t
         likelihood = self.m_fp_s
-        res= [[prior[e][i].posterior(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
+        res= [[prior[e][i].filtered(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
         posterior, _ = self.sortTeams(res,self.o)
         return posterior 
     
@@ -392,12 +380,13 @@ class Game(object):
         return '{}({},{})'.format(c.__name__,self.teams,self.o)
 
 class Time(object):
-    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) ,epsilon=10**-3):
+    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , time_step=None,epsilon=10**-3):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
         self.games_composition = games_composition
         self.results = results
+        self.time_step = time_step
         self.players = set(flat(flat(games_composition) ))
         self.played = {}
         for i in self.players:
@@ -408,7 +397,7 @@ class Time(object):
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
         self.epsilon = epsilon
-        #self.convergence()
+        self.convergence()
     
     
     def __len__(self):
@@ -430,17 +419,31 @@ class Time(object):
         return self.time_likelihood(i)*self.backward_priors[i]
     
     def posterior(self,i):
-        return self.forward_priors[i].posterior(self.time_likelihood(i)*self.backward_priors[i])
+        return self.forward_priors[i].filtered(self.time_likelihood(i)*self.backward_priors[i])
     
+    @property
+    def forward_posteriors(self):
+        res = {}
+        for i in self.players:
+            res[i] = self.forward_posterior(i)
+        return res
+
+    @property
+    def backward_posteriors(self):
+        res = {}
+        for i in self.players:
+            res[i] = self.backward_posterior(i)
+        return res    
+        
     @property
     def posteriors(self):
         res = {}
         for i in self.players:
-            res[i] = self.posterior[i] 
+            res[i] = self.posterior(i)
         return res
     
     def within_prior(self,i,g):
-        return self.posterior(i)/self.likelihoods[i][g] 
+        return self.forward_priors[i].filtered( (self.time_likelihood(i)/self.likelihoods[i][g]) * self.backward_priors[i] )
     
     def within_priors(self,g):
         teams = self.games_composition[g]
@@ -457,9 +460,10 @@ class Time(object):
         for g in range(len(self)):
             game = Game(self.within_priors(g),self.results[g],self.games_composition[g])
             for te in range(self.teams(g)):
-                for i in range(te):
-                    n = self.names(g)[te][i]
-                    max_delta = max(abs(game.likelihood[te][i] - self.likelihoods[n][g]),max_delta)
+                names = self.names(g)[te]
+                for i in range(len(names)):
+                    n = names[i] 
+                    max_delta = max(abs(game.likelihood[te][i].mu - self.likelihoods[n][g].mu),max_delta)
                     self.likelihoods[n][g] = game.likelihood[te][i]
         return max_delta
     
@@ -467,132 +471,84 @@ class Time(object):
         delta = np.inf
         iterations = 0
         while delta > self.epsilon:
-            delta = max(self.iteration())
+            delta = self.iteration()
+            print(delta)
             iterations += 1
         return iterations
 
-    
 class History(object):
     def __init__(self
                  , games_composition
                  , results
                  , times=None
-                 , temporal_batch_length=None
+                 , time_step=0
                  , prior_dict = {} 
                  , default=Rating(mu=25,sigma=25/3,beta=25/6,noise=25/300)
                  , epsilon=10**-3):
-        """
-        names: list of composition [[1,2],[1,3]] or [[[1],[2]],[[1,2],[3]]]
-        results : list of result
-        times : list of time
-        """
-        self.games_composition = games_composition
+        self.games_composition = map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition)
         self.results = results
         self.times = times
-        self.temporal_batch_length = temporal_batch_length#seconds_in_year = 365.25 * 24 * 60 * 60
-        self.epsilon = epsilon
+        if not self.times is None:
+            self.games_composition, self.results, self.times = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.times), key=lambda x: x[2]))))
+            # = list(zip(*sorted(zip(self.games_composition,self.results, self.times), key=lambda x: x[2])))
+            #teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)), self.results), key=lambda x: x[2])
+            #teams_sorted , index_sorted, _ = list(zip(*teams_index_sorted )) 
+    
+            
+        #seconds_in_year = 365.25 * 24 * 60 * 60
+        if time_step == 'seconds':
+            self.time_step = timedelta(seconds=1)
+        if time_step == 'minutes':
+            self.time_step = timedelta(minutes=1)
+        if time_step == 'days':
+            self.time_step = timedelta(days=1)
+        if time_step == 'weeks':
+            self.time_step = timedelta(weeks=1)
+        #if time_step = "months":
+        #    self.time_step = timedelta(months=1)
         
-        self.initial_prior= defaultdict(lambda: default)
+            
+        self.default = default
+        self.epsilon = epsilon
+                
+        self.initial_prior= defaultdict(lambda: self.default)
         self.initial_prior.update(prior_dict)
         
-        self.forward_prior = self.initial_prior.copy()
-        self.backward_prior = defaultdict(lambda: Gaussian()) 
+        self.forward_priors = self.initial_prior.copy()
+        self.backward_priors = defaultdict(lambda: Gaussian()) 
+        
+        self.time_line = []
         
         self.learning_curve = {}
-        
-        #self.last_forward_time = {}
-        #self.last_backward_time = {}
-        self.temporal_batch = []
-        self.games = []
-        #ipdb.set_trace()
-        self.create_games()
-        self.create_setps()
+    
+    def update_index(self,i,t):
+        j = i + 1
+        while (j < len(self)) and (self.times[j] <= t):
+            j += 1
+        return j
+    
+    #def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , time_step=None,epsilon=10**-3):
+    def create_time_line_with_time(self):
+        i = 0; 
+        while i < len(self):
+            t = self.times[i]
+            j = self.update_index(i,t+self.time_step)
+            time = Time(games_composition = self.games_composition[i:j]
+                        ,results = self.results[i:j]
+                        ,forward_priors = self.forward_priors
+                        ,self.times[i:j]
+                        )
+            self.time_line.append(time)
+            i = j 
+            
+            
+            
+            
         
         
     def __len__(self):
         return len(self.games_composition)
     
-    def update_forward(self, names, posterior):
-        for i in range(len(names)):
-            self.forward_prior[names[i]] = posterior[i]
-
-    def update_backward(self,names,inverse_posterior):
-        for i in range(len(names)):
-            self.backward_prior[names[i]] = inverse_posterior[i]
-
-    def update_learning_curve(self, g):
-        names = flat(self.games_composition[g])
-        for i in range(len(names)):
-            n = names[i]
-            if not n in self.learning_curve:
-                self.learning_curve[n] = [self.initial_prior[n]]
-            #ipdb.set_trace()
-            self.learning_curve[n].append(np.prod([flat(self.games[g].last_likelihood)[i],self.forward_prior[n],self.backward_prior[n]]) )
-
-    def create_history(self):
-        if not self.times is None:
-            print("Implementar temporal batch")
-        for g in range(len(self)):#g=0
-            new_time = Time(self.games_composition[g:(g+1)],self.forward_prior)
-            self.temporal_batch.append()
-
-            
-        
-
-    def add_game(self,g):
-        teams = [[self.forward_prior[i] for i in ti ] if isinstance(ti, list) else [self.forward_prior[ti]] for ti in self.games_composition[g] ]
-        self.games.append(Game(teams,self.results[g],self.games_composition[g]))
-        self.update_forward(flat(self.games_composition[g]),flat(self.games[-1].last_posterior))
-        self.update_learning_curve(g)
-    
-    def create_games(self):
-        for g in range(len(self)):#g=0
-            self.add_game(g)
-    
-    def append(self, names, results, times=None):
-        n = len(self)
-        self.games_composition += names
-        self.results += results
-        self.times += times
-        m = len(self)
-        for g in range(n,m):#g=0
-            self.add_game(g)
-    
-    def backpropagation(self):
-        delta = np.inf
-        self.backward_prior = defaultdict(lambda: Gaussian()) 
-        for g in reversed(range(len(self))):#g=2
-            inverse_prior = [ [ self.backward_prior[n] for n in ns] for ns in self.games[g].names]
-            for e in range(len(self.games[g])):#n=2
-                self.games[g].teams[e].back_info(inverse_prior[e])
-            likelihood, _ = self.games[g].update
-            inverse_posterior = [flat(inverse_prior)[i]*flat(likelihood)[i] for i in range(len(flat(self.games[g].names)))]
-            self.update_backward(flat(self.games[g].names),flat(inverse_posterior))
-        return delta
-        
-    
-    def propagation(self):
-        delta = np.inf
-        self.forward_prior = self.initial_prior.copy()
-        self.learning_curve = defaultdict(lambda: [])
-        for g in range(len(self)):#g=2
-            prior = [ [ self.forward_prior[n] for n in ns] for ns in self.games[g].names]
-            for e in range(len(self.games[g])):#n=2
-                self.games[g].teams[e].for_info(prior[e])
-            _, posterior = self.games[g].update
-            self.update_forward(flat(self.games[g].names),flat(posterior))
-            self.update_learning_curve(g)
-        return delta
-    
-    def converge(self):
-        delta_b = np.inf; delta_f = np.inf 
-        while max(delta_b,delta_f) > self.epsilon:
-            delta_b = self.backpropagation()
-            self.reset_forward()
-            delta_f = self.propagation()
-        
-    def evidence(self):
-        pass
     
     
 class TrueSkill(object):
