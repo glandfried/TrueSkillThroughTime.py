@@ -119,10 +119,9 @@ class Rating(Gaussian):
             self.noise = self.env.tau_player if not self.env is None else global_env().tau_player    
         super(Rating, self).__init__(mu, sigma)
     
-    @property
-    def forget(self):
-        self.modify(Gaussian(self,self.noise))
-        return self
+    def forget(self,t):
+        new = Gaussian(self,self.noise*t)
+        return Rating(new.mu, new.sigma,self.env,self.beta,self.noise)
     
     @property
     def performance(self):
@@ -141,10 +140,10 @@ class Rating(Gaussian):
     def __repr__(self):
         c = type(self)
         if self.env is None:
-            args = ( c.__name__,*iter(self),self.beta)
+            args = ( c.__name__,*iter(self),self.beta,self.noise)
         else: 
-            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self),self.beta)
-        return '%s(mu=%.3f, sigma=%.3f, beta=%.3f)' % args
+            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self),self.beta,self.noise)
+        return '%s(mu=%.3f, sigma=%.3f, beta=%.3f, noise=%.3f)' % args
 
 class Team(object):
     def __init__(self, skills=None, synergys=None):
@@ -417,12 +416,12 @@ class Time(object):
         return np.prod([ self.likelihoods[i][k]  for k in self.played[i] ])
     
     def forward_posterior(self,i):
-        return self.forward_priors[i].filtered(self.time_likelihood(i))
+        return self.forward_priors[i].filtered(self.time_likelihood(i))#.forget(10)
     
     def backward_posterior(self,i):
         #ipdb.set_trace()
         res = self.time_likelihood(i)*self.backward_priors[i]
-        return self.forward_priors[i].inherit(res)
+        return self.forward_priors[i].inherit(res).forget(50)
     
     def posterior(self,i):
         return self.forward_priors[i].filtered(self.time_likelihood(i)*self.backward_priors[i])
@@ -520,7 +519,7 @@ class History(object):
         
         self.times = []
         
-        self.learning_curve = {}
+        self.learning_curves = {}
         
         self.through_time()
     
@@ -533,7 +532,7 @@ class History(object):
     
     #def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=10**-3):
     def trueSkill(self):
-        i = 0; j = 0
+        i = 0; j = 0;
         #ipdb.set_trace()
         while i < len(self):
             t = None if self.batch_numbers is None else self.batch_numbers[i]
@@ -544,6 +543,7 @@ class History(object):
                         ,batch_number = t
                         ,epsilon = self.epsilon
             )
+            
             self.forward_priors.update(time.forward_posteriors)
             self.times.append(time)
             i = j 
@@ -573,7 +573,13 @@ class History(object):
             delta = max(self.delta(new,old),delta)
         self.forward_priors.update(self.times[t].forward_posteriors)
         return delta
-            
+    
+    def update_learning_curves(self):
+        self.learning_curves = defaultdict(lambda: []) 
+        for time in self.times:
+            for i in time.posteriors:
+                self.learning_curves[i].append(time.posteriors[i])
+                
     def through_time(self):
         self.trueSkill()
         delta = np.inf
@@ -582,7 +588,10 @@ class History(object):
             delta = min(self.backward_propagation(),delta)
             delta = min(self.forward_propagation(),delta)
             print(delta)
-        
+        self.update_learning_curves()
+    
+    
+    
     def __len__(self):
         return len(self.games_composition)
     

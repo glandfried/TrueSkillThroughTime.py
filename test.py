@@ -7,7 +7,47 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 
 history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6],[2,5],[1,4]],[[0,1],[1,0],[0,1]]*4+[[0,1]]*3)
-history.forward_priors
+history.learning_curves
+history.times[3].backward_posteriors[1]
+history.forward_priors[6].noise
+for i in history.learning_curves:
+    plt.plot(history.learning_curves[i])
+
+history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6]]*4,[[0,1],[1,0],[0,1]]*4+[[0,1]]*4)
+
+def learning_curve(experience,skill_0=25,alpha=0.05):
+    return skill_0 * experience**alpha
+
+"""
+Hacer experimento
+3 jugadores fijos. (20, 25, 30)
+Uno solo apende, de 22 a 28.
+"""
+
+plt.plot(learning_curve(np.arange(1,100),22))
+
+r0 = th.Rating(20,0.001)
+r1 = th.Rating(25,0.001)
+r2 = th.Rating(30,0.001)
+r3 = lambda x: th.Rating(learning_curve(x,22),0.001)
+r = [r0,r1,r2,r3]
+def play(i):
+    return [r[0].play(),r[1].play(),r[2].play(),r[3](i).play() ]
+
+games_composition = []
+results = []
+batch_number = []
+for t in range(1,101):
+    choice = list(np.random.choice([0,1,2,3],4,replace=False))
+    games_composition += [choice[0:2]] + [choice[2:4]]
+    performance = play(10)
+    batch_number += [t,t]
+    
+    A = performance[choice[0]] < performance[choice[1]]
+    B = performance[choice[2]] < performance[choice[3]]
+    results += [,int(performance[choice[0]]> performance[choice[1]])  ]
+    results += [int(performance[choice[2]]< performance[choice[2]]),int(performance[choice[0]]> performance[choice[1]])  ]
+    
 
 history = th.History([[1,2],[1,3],[[2],[3]]],[[0,1],[1,0],[0,1]],[2,3,1])
 history.times[0].posteriors 
@@ -72,8 +112,8 @@ for n in history.forward.keys():
 
 
 
-history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5,default=th.Rating(mu=25,sigma=250,beta=25/6))
-history.forward_prior
+history = th.History([[1,2],[1,3],[[2],[3]]]*5,[[0,1],[1,0],[0,1]]*5,default=th.Rating(mu=25,sigma=1,beta=25/6))
+history.learning_curves
 trueskill_learning_curve = history.learning_curve.copy()
 
 history.backpropagation()
