@@ -43,14 +43,14 @@ class Gaussian(object):
             if isinstance(mu, Gaussian) and sigma is None:
                 sigma = mu.sigma
                 mu = mu.mu
+            elif isinstance(mu, Gaussian):
+                sigma = math.sqrt( mu.sigma ** 2 + sigma**2 )
+                mu = mu.mu
             elif sigma is None:
                 raise TypeError('sigma argument is needed')
             elif sigma <= 0:
                 raise ValueError('sigma**2 should be greater than 0')
             
-            if isinstance(mu, Gaussian):
-                sigma = math.sqrt( mu.sigma ** 2 + sigma**2 )
-                mu = mu.mu
             
             pi = sigma ** -2
             tau = pi * mu

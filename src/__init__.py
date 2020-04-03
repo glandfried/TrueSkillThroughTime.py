@@ -110,18 +110,21 @@ class Rating(Gaussian):
             mu = global_env().mu_player
         if sigma is None:
             sigma = global_env().sigma_player
-        self.env = env
+        if not env is None:
+            self.env = env
+        else:
+            self.env = global_env()
         self.beta = beta
         self.noise = noise
         if self.beta is None:
-            self.beta = self.env.beta_player if not self.env is None else global_env().beta_player    
+            self.beta = self.env.beta_player 
         if self.noise is None:
-            self.noise = self.env.tau_player if not self.env is None else global_env().tau_player    
+            self.noise = self.env.tau_player 
         super(Rating, self).__init__(mu, sigma)
     
-    def forget(self,t):
+    def forget(self,t=1):
         new = Gaussian(self,self.noise*t)
-        return Rating(new.mu, new.sigma,self.env,self.beta,self.noise)
+        return Rating(new.mu, min(new.sigma,self.env.sigma_player),self.env,self.beta,self.noise)
     
     @property
     def performance(self):
@@ -416,12 +419,12 @@ class Time(object):
         return np.prod([ self.likelihoods[i][k]  for k in self.played[i] ])
     
     def forward_posterior(self,i):
-        return self.forward_priors[i].filtered(self.time_likelihood(i))#.forget(10)
+        return self.forward_priors[i].filtered(self.time_likelihood(i)).forget(1)
     
     def backward_posterior(self,i):
         #ipdb.set_trace()
         res = self.time_likelihood(i)*self.backward_priors[i]
-        return self.forward_priors[i].inherit(res).forget(50)
+        return self.forward_priors[i].inherit(res).forget(1)
     
     def posterior(self,i):
         return self.forward_priors[i].filtered(self.time_likelihood(i)*self.backward_priors[i])
@@ -553,7 +556,7 @@ class History(object):
     
     def backward_propagation(self):
         delta = 0
-        for t in reversed(range(len(self)-1)):
+        for t in reversed(range(len(self.times)-1)):
             self.backward_priors.update(self.times[t+1].backward_posteriors)
             old = self.times[t].posteriors
             self.times[t].backward_info(self.backward_priors)
@@ -565,7 +568,7 @@ class History(object):
     def forward_propagation(self):
         self.forward_priors = self.initial_prior.copy()
         delta = 0
-        for t in range(1,len(self)):
+        for t in range(1,len(self.times)):
             self.forward_priors.update(self.times[t-1].forward_posteriors)
             old = self.times[t].posteriors
             self.times[t].forward_info(self.forward_priors)
@@ -643,6 +646,12 @@ class TrueSkill(object):
     def game(self, teams=[], results=[]):
         return Game(teams,results)
     
+    def history(self,games_composition,results, batch_numbers=None, prior_dict = {},epsilon=10**-3  ):
+        print(Rating(mu=self.mu_player,sigma=self.sigma_player,beta=self.beta_player,noise=self.tau_player))
+        return History(games_composition, results , batch_numbers, prior_dict           
+                 , default=Rating(mu=self.mu_player,sigma=self.sigma_player,env=self, beta=self.beta_player,noise=self.tau_player)
+                 , epsilon=epsilon)
+        
     @property
     def Rating(self):
         return self.rating
@@ -659,11 +668,18 @@ class TrueSkill(object):
     def Game(self):
         return self.game
     
+    @property
+    def History(self):
+        return self.history
+    
+    
     def rate(self,teams,results):
         _teams = [ self.Team(t) for t in teams]
         g = self.Game(_teams,results)
         return g.posterior
-        
+    
+    def make_as_global(self):
+        return setup(env=self)
   
     def __iter__(self):
         return iter((self.mu_player, self.sigma_player, self.beta_player,self.tau_player
