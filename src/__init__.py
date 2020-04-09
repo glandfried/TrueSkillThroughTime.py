@@ -6,6 +6,25 @@ print("""
    :copyright: (c) 2019-2020 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """)
+
+
+
+"""
+Complejidad computacional:
+    0. TTT tarda al menos k*t*2*partidas*(0.003*(1/0.76)). 
+       La complejidad es O(k*partidas), la t puede acotarse.
+    1. El 76% del tiempo se consume en crear partidas.
+    2. Cada partida (de dos equiopos) tarda ~0.003 segundos en crearse.
+    3. Cada convergencia requiere dos ciclos (forward+backward)
+    4. Luego, por cada convergencia:
+       - 2.4 (3.16) segundos con 400 partidas por convergencia
+       - 1.67 (2.19) horas con 1M partidas por convergencia
+    5. La cantidad de convergencias k: ¿de qu\'e depende?
+Objetivos:
+    - Ir agregando partidas de tiempos
+    - Implementar evidencia de a tiempos
+"""
+
 from scipy.stats import entropy
 import numpy as np
 from datetime import datetime
@@ -14,6 +33,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from .mathematics import Gaussian
 #from mathematics import Gaussian
+import time as clock
 import ipdb
 
 BETA = 25/6
@@ -222,15 +242,11 @@ class Game(object):
         #self.prior = [[r for r in te.ratings] for te in self.teams] 
         #self.inverse_prior = [[Gaussian() for r in te.ratings] for te in self.teams] 
         
-        self.vanilla_likelihood = self.compute_likelihood()
-        self.vanilla_posterior = self.compute_posterior()
-        self.vanilla_evidence = self.compute_evidence()
-        self.likelihood = self.vanilla_likelihood
-        self.posterior = self.vanilla_posterior 
-        self.evidence = self.vanilla_evidence 
+
+        self.likelihood = self.compute_likelihood() # 0.0025
+        self.posterior = self.compute_posterior() # 0.00025
+        self.evidence = self.compute_evidence() # 0.00006
         
-        self.last_posterior, self.last_likelihood, self.last_evidence = self.vanilla_posterior , self.vanilla_likelihood, self.vanilla_evidence
-    
     def sortTeams(self,teams,results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted )) 
@@ -352,7 +368,7 @@ class Game(object):
     
     def compute_posterior(self):    
         prior = self.t
-        likelihood = self.m_fp_s
+        likelihood = self.likelihood
         res= [[prior[e][i].filtered(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
         posterior, _ = self.sortTeams(res,self.o)
         return posterior 
@@ -385,7 +401,7 @@ class Game(object):
         return '{}({},{})'.format(c.__name__,self.teams,self.o)
 
 class Time(object):
-    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=10**-3):
+    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=1e-2):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
@@ -403,7 +419,9 @@ class Time(object):
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
         self.epsilon = epsilon
-        self.convergence()
+        self.game_time = 0
+        self.evidence = []
+        self.iteration()
     
     
     def __len__(self):
@@ -466,13 +484,19 @@ class Time(object):
     def iteration(self):
         max_delta = 0
         for g in range(len(self)):
-            game = Game(self.within_priors(g),self.results[g],self.games_composition[g])
+            within_priors = self.within_priors(g)
+            game_start = clock.time()
+            game = Game(within_priors,self.results[g],self.games_composition[g])
+            game_end = clock.time()
+            self.game_time +=  game_end - game_start
             for te in range(self.teams(g)):
                 names = self.names(g)[te]
                 for i in range(len(names)):
                     n = names[i] 
                     max_delta = max(abs(game.likelihood[te][i].mu - self.likelihoods[n][g].mu),max_delta)
                     self.likelihoods[n][g] = game.likelihood[te][i]
+            if len(self.evidence) < g:
+                self.evidence.append(game.evidence)
         return max_delta
     
     def convergence(self):
@@ -482,6 +506,7 @@ class Time(object):
             delta = self.iteration()
             #print(delta)
             iterations += 1
+        #print(iterations)
         return iterations
     
     def backward_info(self,backward_priors):
@@ -522,9 +547,20 @@ class History(object):
         
         self.times = []
         
+        ############
+        # Por si queremos comparar con trueskill
+        self.forward_priors_trueskill = self.initial_prior.copy()
+        self.times_trueskill = []
+        ########
+        
+        self.learning_curves_trueskill = {}
+        self.learning_curves_at_evidence = defaultdict(lambda: []) 
         self.learning_curves = {}
         
+        self.trueSkill()
         self.through_time()
+        
+        
     
     def end_batch(self,i):
         t = None if self.batch_numbers is None else self.batch_numbers[i]
@@ -533,24 +569,29 @@ class History(object):
             j += 1
         return j
     
-    #def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=10**-3):
+        
     def trueSkill(self):
-        i = 0; j = 0;
-        #ipdb.set_trace()
+        i = 0;
         while i < len(self):
             t = None if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
             time = Time(games_composition = self.games_composition[i:j]
                         ,results = self.results[i:j]
-                        ,forward_priors = self.forward_priors
+                        ,forward_priors = self.forward_priors_trueskill
                         ,batch_number = t
                         ,epsilon = self.epsilon
-            )
-            
-            self.forward_priors.update(time.forward_posteriors)
-            self.times.append(time)
+            )        
+            self.forward_priors_trueskill.update(time.forward_posteriors)
+            self.times_trueskill.append(time)
             i = j 
-    
+        self.update_learning_curve_trueskill()
+            
+    def update_learning_curve_trueskill(self):
+        self.learning_curves_trueskill = defaultdict(lambda: []) 
+        for time in self.times_trueskill:
+            for i in time.posteriors:
+                self.learning_curves_trueskill[i].append(time.posteriors[i])
+
     def delta(self,new,old):
         return np.max([ abs(new[i].mu - old[i].mu) for i in old])
     
@@ -574,7 +615,7 @@ class History(object):
             self.times[t].forward_info(self.forward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
-        self.forward_priors.update(self.times[t].forward_posteriors)
+            #self.forward_priors.update(self.times[t].forward_posteriors)
         return delta
     
     def update_learning_curves(self):
@@ -582,16 +623,49 @@ class History(object):
         for time in self.times:
             for i in time.posteriors:
                 self.learning_curves[i].append(time.posteriors[i])
-                
+
     def through_time(self):
-        self.trueSkill()
+        i = 0;
+        while i < len(self):
+            print(i, len(self))
+            t = None if self.batch_numbers is None else self.batch_numbers[i]
+            j = self.end_batch(i)
+            time = Time(games_composition = self.games_composition[i:j]
+                        ,results = self.results[i:j]
+                        ,forward_priors = self.forward_priors
+                        ,batch_number = t
+                        ,epsilon = self.epsilon
+            )        
+            self.forward_priors.update(time.forward_posteriors)
+            self.times.append(time)
+            self.convergence()
+            for i in time.posteriors:
+                self.learning_curves_at_evidence[i].append(time.posteriors[i])
+            i = j 
+    
+    def convergence(self):
         delta = np.inf
         #ipdb.set_trace()
         while delta > self.epsilon:
+            #start = clock.time()
             delta = min(self.backward_propagation(),delta)
             delta = min(self.forward_propagation(),delta)
-            print(delta)
+            #end = clock.time()
+            #print(end-start)
+            #print(delta)
         self.update_learning_curves()
+    
+    def all_together(self):
+        self.trueSkill()
+        self.convergence()
+        "calcular evidencia después de convergencia"
+        pass
+    
+    def log10_evidence(self):
+        return np.sum(np.log10(flat(list(map(lambda t: t.evidence, self.times )))))
+        
+    def log10_evidence_trueskill(self):
+        return np.sum(np.log10(flat(list(map(lambda t: t.evidence, self.times_trueskill )))))
     
     
     
@@ -643,8 +717,8 @@ class TrueSkill(object):
         synergys = [ self.Synergy(*s) for s in teammates] if not teammates is None else None
         return Team(skills,synergys )
     
-    def game(self, teams=[], results=[]):
-        return Game(teams,results)
+    def game(self, teams=[], results=[], names=[]):
+        return Game(teams,results,names)
     
     def history(self,games_composition,results, batch_numbers=None, prior_dict = {},epsilon=10**-3  ):
         print(Rating(mu=self.mu_player,sigma=self.sigma_player,beta=self.beta_player,noise=self.tau_player))

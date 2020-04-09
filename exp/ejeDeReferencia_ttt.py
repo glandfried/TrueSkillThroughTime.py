@@ -6,22 +6,18 @@ import src as ts
 from importlib import reload  # Python 3.4+ only.
 reload(ts)
 import matplotlib.pyplot as plt
-env = ts.TrueSkill(draw_probability=0,beta_player=4.1667,tau_player=(25/3)*0.25 )
-env.make_as_global()
+env = ts.TrueSkill(draw_probability=0,beta_player=4.1667,tau_player=(25/3)*0.2 )
 
 plt.close()
 
 """
-Conlusiones:
-    - Al ser la curva de aprendizaje logaritmica, la tasa de olvido no debería
-      ser siempre la misma. Debería ser mayor cuando en las primeras experiencias
-      y deberia reducirse a medida que aumenta la experiencia
-    - Se puede poner tasa de olvido muy altas que (25%) que igual incertidumbre
-      se reduce bastante al haber varias partidas
-Objetivos:
-    - Ir agregando partidas de tiempos
-    - Implementar evidencia de a tiempos
-    - Revisar donde está la demora
+Conlusiones:    
+    Olvido:
+        1. Al ser la curva de aprendizaje logaritmica, la tasa de olvido no debería
+        ser siempre la misma. Debería ser mayor cuando en las primeras experiencias
+        y deberia reducirse a medida que aumenta la experiencia
+        2. Se puede poner tasa de olvido muy altas que (25%) que igual incertidumbre
+        se redue bastante al haber varias partidas    
 """
 
 beta = 1
@@ -87,21 +83,40 @@ while u < universos:#u=0
 prior_dict = {'e0':ts.Rating(mu=20, sigma=0.0001,beta=1,noise=0),
             'e1':ts.Rating(mu=25,sigma=25/6,beta=1,noise=0),'e2':ts.Rating(mu=29,sigma=25/6,beta=1,noise=0), 
             'e3':ts.Rating(mu=31,sigma=25/6,beta=1,noise=0),'e4':ts.Rating(mu=33,sigma=25/6,beta=1,noise=0)}
-
+reload(ts)
 history = env.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
-history.learning_curves['a0']
+history.log10_evidence()
+history.log10_evidence_trueskill()
+
+for i in history.learning_curves_trueskill:
+    plt.plot(history.learning_curves_trueskill[i])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
 for i in history.learning_curves:
     plt.plot(history.learning_curves[i])
 plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
+for i in history.learning_curves_at_evidence:
+    plt.plot(history.learning_curves_at_evidence[i])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
 
-
-filter(lambda x:batch_number  ,composition )
-
-composition = np.array(composition )
-pos = np.array(pos)
-batch_number = np.array(batch_number)
-composition[batch_number==1] 
-
-history = env.History(composition[batch_number==1] ,pos[batch_number==1],batch_number[batch_number==1],prior_dict )
-
-
+plt.plot(history.learning_curves_trueskill['a0'][0:5])
+plt.plot(history.learning_curves_at_evidence['a0'][0:5])
+plt.plot(history.learning_curves['a0'][0:5])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos))[0:5])
+plt.plot(evidence[0:5] )
+plt.plot(evidence_ts[0:5] )
+evidence = []
+for t in history.times:
+    i = 0
+    for gc in t.games_composition:
+        if 'a0' in ts.flat(gc):
+            evidence.append(t.evidence[i])
+        i = i +1
+evidence_ts = [] 
+for t in history.times_trueskill:
+    i = 0
+    for gc in t.games_composition:
+        if 'a0' in ts.flat(gc):
+            evidence_ts.append(t.evidence[i])
+        i = i +1
+            
+    
