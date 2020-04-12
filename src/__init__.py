@@ -95,11 +95,6 @@ class Skill(Gaussian):
         return self.env.beta_player if not self.env is None else global_env().beta_player    
     
     @property
-    def forget(self):
-        self.modify(Gaussian(self,self.noise))
-        return self
-    
-    @property
     def performance(self):
         return Gaussian(self,self.beta)
     
@@ -421,6 +416,7 @@ class Time(object):
         self.epsilon = epsilon
         self.game_time = 0
         self.evidence = []
+        self.last_evidence = []
         self.iteration()
     
     
@@ -437,28 +433,27 @@ class Time(object):
         return np.prod([ self.likelihoods[i][k]  for k in self.played[i] ])
     
     def forward_posterior(self,i):
-        return self.forward_priors[i].filtered(self.time_likelihood(i)).forget(1)
-    
+        return self.forward_priors[i].filtered(self.time_likelihood(i))
+     
     def backward_posterior(self,i):
-        #ipdb.set_trace()
         res = self.time_likelihood(i)*self.backward_priors[i]
-        return self.forward_priors[i].inherit(res).forget(1)
+        return self.forward_priors[i].inherit(res)
     
     def posterior(self,i):
         return self.forward_priors[i].filtered(self.time_likelihood(i)*self.backward_priors[i])
     
     @property
-    def forward_posteriors(self):
+    def forward_priors_out(self):
         res = {}
         for i in self.players:
-            res[i] = self.forward_posterior(i)
+            res[i] = self.forward_posterior(i).forget(1)
         return res
 
     @property
-    def backward_posteriors(self):
+    def backward_priors_out(self):
         res = {}
         for i in self.players:
-            res[i] = self.backward_posterior(i)
+            res[i] = self.backward_posterior(i).forget(1)
         return res    
         
     @property
@@ -495,10 +490,14 @@ class Time(object):
                     n = names[i] 
                     max_delta = max(abs(game.likelihood[te][i].mu - self.likelihoods[n][g].mu),max_delta)
                     self.likelihoods[n][g] = game.likelihood[te][i]
-            if len(self.evidence) < g:
+            if not (len(self.evidence) > g):
                 self.evidence.append(game.evidence)
+                self.last_evidence.append(game.evidence)
+            else:
+                #ipdb.set_trace()
+                self.last_evidence[g] = game.evidence
         return max_delta
-    
+            
     def convergence(self):
         delta = np.inf
         iterations = 0
@@ -529,7 +528,7 @@ class History(object):
                  , results
                  , batch_numbers=None
                  , prior_dict = {} 
-                 , default=Rating(mu=25,sigma=25/3,beta=25/6,noise=25/300)
+                 , default=None
                  , epsilon=10**-3):
         self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
@@ -537,14 +536,16 @@ class History(object):
         if not self.batch_numbers is None:
             self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
             
-        self.default = default
+        if default is None:
+            self.default = Rating()
+        else:
+            self.default = default
         self.epsilon = epsilon
                 
         self.initial_prior= defaultdict(lambda: self.default)
         self.initial_prior.update(prior_dict)
         self.forward_priors = self.initial_prior.copy()
-        self.backward_priors = defaultdict(lambda: Gaussian()) 
-        
+        self.backward_priors  = defaultdict(lambda: Gaussian())
         self.times = []
         
         ############
@@ -554,13 +555,12 @@ class History(object):
         ########
         
         self.learning_curves_trueskill = {}
-        self.learning_curves_at_evidence = defaultdict(lambda: []) 
+        self.learning_curves_online = defaultdict(lambda: []) 
         self.learning_curves = {}
         
-        self.trueSkill()
-        self.through_time()
-        
-        
+        #self.trueSkill()
+        #self.through_time()
+        #self.through_time(online=False); self.convergence()    
     
     def end_batch(self,i):
         t = None if self.batch_numbers is None else self.batch_numbers[i]
@@ -581,7 +581,7 @@ class History(object):
                         ,batch_number = t
                         ,epsilon = self.epsilon
             )        
-            self.forward_priors_trueskill.update(time.forward_posteriors)
+            self.forward_priors_trueskill.update(time.forward_priors_out)
             self.times_trueskill.append(time)
             i = j 
         self.update_learning_curve_trueskill()
@@ -596,26 +596,25 @@ class History(object):
         return np.max([ abs(new[i].mu - old[i].mu) for i in old])
     
     def backward_propagation(self):
+        self.backward_priors  = defaultdict(lambda: Gaussian()) 
         delta = 0
         for t in reversed(range(len(self.times)-1)):
-            self.backward_priors.update(self.times[t+1].backward_posteriors)
+            self.backward_priors.update(self.times[t+1].backward_priors_out)
             old = self.times[t].posteriors
             self.times[t].backward_info(self.backward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
-        self.backward_priors = defaultdict(lambda: Gaussian())
         return delta
     
     def forward_propagation(self):
         self.forward_priors = self.initial_prior.copy()
         delta = 0
         for t in range(1,len(self.times)):
-            self.forward_priors.update(self.times[t-1].forward_posteriors)
+            self.forward_priors.update(self.times[t-1].forward_priors_out)
             old = self.times[t].posteriors
             self.times[t].forward_info(self.forward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
-            #self.forward_priors.update(self.times[t].forward_posteriors)
         return delta
     
     def update_learning_curves(self):
@@ -624,7 +623,8 @@ class History(object):
             for i in time.posteriors:
                 self.learning_curves[i].append(time.posteriors[i])
 
-    def through_time(self):
+            
+    def through_time(self,online=True):
         i = 0;
         while i < len(self):
             print(i, len(self))
@@ -635,33 +635,48 @@ class History(object):
                         ,forward_priors = self.forward_priors
                         ,batch_number = t
                         ,epsilon = self.epsilon
-            )        
-            self.forward_priors.update(time.forward_posteriors)
+            )                    
             self.times.append(time)
-            self.convergence()
+            if online: self.convergence()
+            self.forward_priors.update(time.forward_priors_out)
             for i in time.posteriors:
-                self.learning_curves_at_evidence[i].append(time.posteriors[i])
+                self.learning_curves_online[i].append(time.posteriors[i])
             i = j 
     
     def convergence(self):
         delta = np.inf
-        #ipdb.set_trace()
         while delta > self.epsilon:
-            #start = clock.time()
-            delta = min(self.backward_propagation(),delta)
+            start = clock.time()
+            delta = min(self.backward_propagation(),delta)            
             delta = min(self.forward_propagation(),delta)
-            #end = clock.time()
-            #print(end-start)
-            #print(delta)
+            end = clock.time()
+            print("d: ",round(delta,6),", t: ",round(end-start,4))
         self.update_learning_curves()
     
-    def all_together(self):
-        self.trueSkill()
-        self.convergence()
-        "calcular evidencia después de convergencia"
-        pass
+    def players(self):
+        return set(flat(flat(self.games_composition)))
+    
+    def individual_evidence(self,which=None):
+        res = defaultdict(lambda: [])
+        if which == 'TrueSkill':
+            times = self.times_trueskill
+        else:
+            times = self.times
+        for t in times:
+            for g in range(len(t)):
+                comp = t.games_composition[g]
+                for e in range(len(comp)):
+                    for i in range(len(comp[e])):
+                        if which == 'TTT':
+                            res[comp[e][i]].append(t.last_evidence[g])
+                        else:
+                            res[comp[e][i]].append(t.evidence[g])  
+        return res
     
     def log10_evidence(self):
+        return np.sum(np.log10(flat(list(map(lambda t: t.last_evidence, self.times )))))
+    
+    def log10_online_evidence(self):
         return np.sum(np.log10(flat(list(map(lambda t: t.evidence, self.times )))))
         
     def log10_evidence_trueskill(self):

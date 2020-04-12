@@ -6,18 +6,32 @@ import src as ts
 from importlib import reload  # Python 3.4+ only.
 reload(ts)
 import matplotlib.pyplot as plt
-env = ts.TrueSkill(draw_probability=0,beta_player=4.1667,tau_player=(25/3)*0.2 )
+env = ts.TrueSkill(draw_probability=0,beta_player=1.1667,tau_player=(25/3)*0.1 )
 
 plt.close()
 
 """
-Conlusiones:    
-    Olvido:
+
+Online TTT:
+    Observaciones:
+        1. Las curvas de aprendizaje de online TTT y TrueSkill son muy similares
+        2. La evidencia de online TTT es menor a la de trueSkill
+    Objetivos:
+        1. Revisar el c\'odigo.
+
+Olvido:
+    Observaciones:
         1. Al ser la curva de aprendizaje logaritmica, la tasa de olvido no debería
         ser siempre la misma. Debería ser mayor cuando en las primeras experiencias
         y deberia reducirse a medida que aumenta la experiencia
         2. Se puede poner tasa de olvido muy altas que (25%) que igual incertidumbre
         se redue bastante al haber varias partidas    
+        
+Grilla:
+    Observaciones:
+        1. Evidencia convergida conviene olvido bajo (1 sobre 8.33).
+    Hip\'otesis:
+        1. Porque la informaci\'on queda guardada en los vecinos
 """
 
 beta = 1
@@ -37,7 +51,7 @@ def examen(e):
     return 25 + 5*e   
 
 
-intentos = 70
+intentos = 30
 universos = 6
 
 plt.close()
@@ -75,7 +89,7 @@ while u < universos:#u=0
             aprobados += 1
         else:
             aprobados = 0
-        if aprobados == 4:
+        if aprobados == 3:
             e +=1; aprobados=0
         t = t + 1 
     u = u + 1
@@ -83,33 +97,98 @@ while u < universos:#u=0
 prior_dict = {'e0':ts.Rating(mu=20, sigma=0.0001,beta=1,noise=0),
             'e1':ts.Rating(mu=25,sigma=25/6,beta=1,noise=0),'e2':ts.Rating(mu=29,sigma=25/6,beta=1,noise=0), 
             'e3':ts.Rating(mu=31,sigma=25/6,beta=1,noise=0),'e4':ts.Rating(mu=33,sigma=25/6,beta=1,noise=0)}
+
 reload(ts)
-history = env.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
-history.log10_evidence()
-history.log10_evidence_trueskill()
+env_1 = ts.TrueSkill(draw_probability=0,beta_player=1,tau_player=1 )
+history_1 = env_1.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
+env_01 = ts.TrueSkill(draw_probability=0,beta_player=1,tau_player=0.1 )
+history_01 = env_01.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
 
-for i in history.learning_curves_trueskill:
-    plt.plot(history.learning_curves_trueskill[i])
+history_1.through_time()
+history_1.trueSkill()
+history_01.trueSkill()
+np.log((10**history_01.log10_evidence_trueskill())/(10**history_1.log10_evidence_trueskill()))
+np.log((10**history_01.log10_evidence_trueskill())/(10**history_1.log10_online_evidence()))
+np.log((10**history_1.log10_evidence_trueskill())/(10**history_1.log10_online_evidence()))
+np.log((10**history_01.log10_evidence_trueskill())/(10**history_1.log10_evidence()))
+
+for i in history_1.learning_curves_trueskill:
+    plt.plot(history_1.learning_curves_trueskill[i])
 plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
-for i in history.learning_curves:
-    plt.plot(history.learning_curves[i])
+for i in history_1.learning_curves_online:
+    plt.plot(history_1.learning_curves_online[i])
 plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
-for i in history.learning_curves_at_evidence:
-    plt.plot(history.learning_curves_at_evidence[i])
+for i in history_1.learning_curves:
+    plt.plot(history_1.learning_curves[i])
 plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
 
-plt.plot(history.learning_curves_trueskill['a0'][0:5])
-plt.plot(history.learning_curves_at_evidence['a0'][0:5])
-plt.plot(history.learning_curves['a0'][0:5])
-plt.plot(curvaDeAprendizaje(np.arange(1,intentos))[0:5])
-plt.plot(evidence[0:5] )
-plt.plot(evidence_ts[0:5] )
+
+
+individual_evidence_ttt = history.individual_evidence('TTT')
+individual_evidence_online = history.individual_evidence('online')
+individual_evidence_trueskill = history.individual_evidence('TrueSkill')
+
+plt.plot(history.learning_curves_online['a0'])
+plt.plot(history.learning_curves_trueskill['a0'])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
+
+individual_evidence_ttt['a0'][0:3]
+individual_evidence_online['a0'][0:3]
+individual_evidence_trueskill['a0'][0:3]
+plt.plot(individual_evidence_online['a0'])
+plt.plot(individual_evidence_trueskill['a0'])
+plt.plot(individual_evidence_ttt['a0'])
+
+
+
+np.log10(np.prod(np.log10(individual_evidence_online['a0']))/np.prod(np.log10(individual_evidence_trueskill['a0'])))
+
+plt.plot(np.cumsum(np.log10(ts.flat(list(map(lambda t: t.evidence, history_1.times ))))))
+plt.plot(np.cumsum(np.log10(ts.flat(list(map(lambda t: t.evidence, history_01.times_trueskill ))))))
+
+betas = np.arange(1,6)
+taus =  np.arange(1,6)
+evidence_ttt = np.zeros((5,5))
+evidence_ts = np.zeros((5,5))
+for ib in range(len(betas)):
+    for it in range(len(taus )):
+        env = ts.TrueSkill(draw_probability=0,beta_player=betas[ib],tau_player=taus[it] )
+        history = env.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
+        evidence_ttt[ib,it] = history.log10_evidence()
+        evidence_ts[ib,it] = history.log10_online_evidence()
+
+evidence_ttt[:,0]
+evidence_ttt-evidence_ts
+
+
+plt.plot(history.learning_curves['a0'])
+plt.plot(history.learning_curves_trueskill['a0'])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
+
+plt.plot(history.learning_curves_at_evidence['a0'])
+plt.plot(history.learning_curves_trueskill['a0'])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
+
+plt.plot(np.cumsum(np.log(evidence)) )
+plt.plot(np.cumsum(np.log(online_evidence)) )
+plt.plot(np.cumsum(np.log(evidence_ts)) )
+
+evidence[0:5]
+
+
 evidence = []
 for t in history.times:
     i = 0
     for gc in t.games_composition:
         if 'a0' in ts.flat(gc):
-            evidence.append(t.evidence[i])
+            evidence.append(t.last_evidence[i])
+        i = i +1
+online_evidence = []
+for t in history.times:
+    i = 0
+    for gc in t.games_composition:
+        if 'a0' in ts.flat(gc):
+            online_evidence.append(t.evidence[i])
         i = i +1
 evidence_ts = [] 
 for t in history.times_trueskill:
