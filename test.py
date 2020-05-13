@@ -1,14 +1,22 @@
-import src as th
 #import trueskill as ts
 import numpy as np
 from importlib import reload  # Python 3.4+ only.
+import src as th
 reload(th)
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
-env = th.TrueSkill(draw_probability=0,tau_player=(25/3)*0.2 )
+env = th.TrueSkill(draw_probability=0,tau=(25/3)*0.2, beta=0)
+
+th.Rating()
+env.Rating()
 
 history = env.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6],[2,5],[1,4]], [[0,1],[1,0],[0,1]]*4+[[0,1]]*3)
+history.through_time(online=False)
+history.convergence()    
+history.forward_priors
+
+
 history.learning_curves[1]
 history.times[3].backward_posteriors[1]
 history.forward_priors[6].noise

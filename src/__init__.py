@@ -1,8 +1,13 @@
 from __future__ import absolute_import
 print("""
-   trueskill
+   Trueskill
    ~~~~~~~~~
    :copyright: (c) 2012-2016 by Heungsub Lee.
+   :copyright: (c) 2019-2020 by Gustavo Landfried.
+   :license: BSD, see LICENSE for more details.
+   
+   Trueskill Through Time
+   ~~~~~~~~~
    :copyright: (c) 2019-2020 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """)
@@ -27,8 +32,8 @@ Objetivos:
 
 from scipy.stats import entropy
 import numpy as np
-from datetime import datetime
-from datetime import timedelta
+#from datetime import datetime
+#from datetime import timedelta
 from collections import defaultdict
 from collections.abc import Iterable
 from .mathematics import Gaussian
@@ -39,107 +44,38 @@ import ipdb
 BETA = 25/6
  
 __all__ = [
-    'TrueSkill', 'Rating' , 'Skill', 'Synergy',
+    'TrueSkill', 'Rating' ,'Team', 'Game', 'History',
     'global_env', 'setup',
-    'MU_PLAYER', 'SIGMA_PLAYER', 'BETA_PLAYER', 'TAU_PLAYER', 'DRAW_PROBABILITY',
-    'MU_TEAMMATE', 'SIGMA_TEAMMATE', 'BETA_TEAMMATE', 'TAU_TEAMMATE'
+    'MU', 'SIGMA', 'BETA', 'TAU', 'DRAW_PROBABILITY', 'EPSILON'
 ]
 
-#: Default initial mean of players.
-MU_PLAYER = 25.
-#: Default initial standard deviation of players.
-SIGMA_PLAYER = MU_PLAYER / 3
-#: Default random noise of players' performances. 
-BETA_PLAYER = SIGMA_PLAYER / 2
-#: Default dynamic factor of players.
-TAU_PLAYER = SIGMA_PLAYER / 100
+#: Default initial mean 
+MU = 25.
+#: Default initial standard deviation
+SIGMA = MU / 3
+#: Default random noise
+BETA = SIGMA / 2
+#: Default dynamic factor
+TAU = SIGMA / 100
 #: Default draw probability of the game.
 DRAW_PROBABILITY = .10
-#: A basis to check reliability of the result.
-DELTA = 0.0001
-#: Default initial mean of teammates.
-MU_TEAMMATE = 0.
-#: Default initial standard deviation of teammates.
-SIGMA_TEAMMATE = 1.
-#: Default random noise of teammates' performances.
-BETA_TEAMMATE = 1.
-#: Default dynamic factor of teammates.
-TAU_TEAMMATE = 1. / 100
-
-MU_HANDICAP = 0.
-SIGMA_HANDICAP = 25./3
-BETA_HANDICAP = 0.25
-TAU_HANDICAP = 1. / 100
-
-class Skill(Gaussian):
-    """ Skill belief distribution
-    """
-    def __init__(self, mu=None, sigma=None, env=None):
-        if isinstance(mu, tuple):
-            mu, sigma = mu
-        elif isinstance(mu, Gaussian):
-            mu, sigma = mu.mu, mu.sigma
-        if mu is None:
-            mu = global_env().mu_player
-        if sigma is None:
-            sigma = global_env().sigma_player
-        self.env = env
-        super(Skill, self).__init__(mu, sigma)
-    
-    @property
-    def noise(self):
-        return self.env.tau_player if not self.env is None else global_env().tau_player    
-    
-    @property
-    def beta(self):
-        return self.env.beta_player if not self.env is None else global_env().beta_player    
-    
-    @property
-    def performance(self):
-        return Gaussian(self,self.beta)
-    
-    def play(self):
-        return np.random.normal(*self.performance)
-
-    def filtered(self,other):
-        return Skill(self*other,self.env)
-    
-    #def modify(self, other):
-    #    super(Skill, self).modify(other)
-    
-    def __repr__(self):
-        c = type(self)
-        if self.env is None:
-            args = ( c.__name__,*iter(self))
-        else: 
-            args = ('.'.join(["TrueSkill", c.__name__]),*iter(self))
-        return '%s(mu=%.3f, sigma=%.3f)' % args
-    
+#: Epsilon
+EPSILON = 1e-3
+ 
 class Rating(Gaussian):
     def __init__(self, mu=None, sigma=None, env=None, beta=None, noise=None):
-        if isinstance(mu, tuple):
-            mu, sigma = mu
-        elif isinstance(mu, Gaussian):
-            mu, sigma = mu.mu, mu.sigma
-        if mu is None:
-            mu = global_env().mu_player
-        if sigma is None:
-            sigma = global_env().sigma_player
-        if not env is None:
-            self.env = env
-        else:
-            self.env = global_env()
-        self.beta = beta
-        self.noise = noise
-        if self.beta is None:
-            self.beta = self.env.beta_player 
-        if self.noise is None:
-            self.noise = self.env.tau_player 
+        self.env = global_env() if env is None  else env
+        if isinstance(mu, tuple):  mu, sigma = mu
+        elif isinstance(mu, Gaussian): mu, sigma = mu.mu, mu.sigma
+        mu = self.env.mu if mu is None else mu
+        sigma = self.env.sigma if sigma is None else sigma
+        self.beta = self.env.beta if beta is None else beta
+        self.noise = self.env.tau if noise is None else noise
         super(Rating, self).__init__(mu, sigma)
     
     def forget(self,t=1):
         new = Gaussian(self,self.noise*t)
-        return Rating(new.mu, min(new.sigma,self.env.sigma_player),self.env,self.beta,self.noise)
+        return Rating(new.mu, min(new.sigma,self.env.sigma),self.env,self.beta,self.noise)
     
     @property
     def performance(self):
@@ -164,12 +100,8 @@ class Rating(Gaussian):
         return '%s(mu=%.3f, sigma=%.3f, beta=%.3f, noise=%.3f)' % args
 
 class Team(object):
-    def __init__(self, skills=None, synergys=None):
-        self.skills = skills
-        self.synergys = synergys
-        self.ratings = self.skills
-        if not self.synergys is None: 
-            self.ratings += self.synergys 
+    def __init__(self, ratings=None):
+        self.ratings = ratings
         self.prior = self.ratings
         self.inverse_prior = [Gaussian() for _ in self.ratings]
         #self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
@@ -178,7 +110,6 @@ class Team(object):
     @property
     def mu(self):
         return sum(map(lambda s: s.mu, self.ratings))
-    
     @property
     def sigma(self):
         return np.sqrt(np.sum(list(map(lambda s: s.performance.sigma**2, self.ratings))) )
@@ -201,7 +132,10 @@ class Team(object):
         return self.ratings[key]
     
     def exclude(self,key):
-        return Gaussian(self.mu - self[key].mu, np.sqrt(self.sigma**2 - self[key].sigma**2))
+        mu = self.mu - self[key].mu
+        sigma = np.sqrt(self.sigma**2 - self[key].sigma**2)
+        #ipdb.set_trace()
+        return Gaussian(mu,sigma)
     
     def __repr__(self):
         res = 'Team('
@@ -220,9 +154,7 @@ class Game(object):
             self.teams = list(teams)
         else:   
             self.teams = [ Team(t) for t in teams]
-        #self.teams = [ list(t) if isinstance(t,Iterable) else [t]  for t in teams]
         self.results = list(results)
-        
         if not names is None:
             self.names = [list(n) if isinstance(n,Iterable) else [n] for n in names]
             
@@ -278,10 +210,7 @@ class Game(object):
                     np.prod(team_perf_messages[i+1])/ team_perf_messages[i+1][1]
                 )
                 
-                #start = time.time()
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-                #end = time.time()
-                #truncadas += end-start
                                 
                 delta = max(delta, thisDelta(d_old,np.prod(diff_messages[i])))   
                 
@@ -300,10 +229,7 @@ class Game(object):
                     np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                 )
                 
-                #start = time.time()
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-                #end = time.time()
-                #truncadas += end-start
                 
                 delta = max(delta, thisDelta(d_old,np.prod(diff_messages[i])))   
                 
@@ -314,7 +240,7 @@ class Game(object):
                 )
         
             k += 1
-            #print(delta,k)
+            
         if len(self.t)==2:
             i = 0
             diff_messages[0][0] = (
@@ -346,15 +272,11 @@ class Game(object):
         for i in range(len(self.t)):
             res[i] = np.prod(team_perf_messages[i])/team_perf_messages[i][0]
         
-        #print ('trunc ', truncadas)
         return res
 
     @property
     def m_fp_s(self):
-        #start = time.time()
         t_ft = self.m_t_ft
-        #end = time.time()
-        #print(end - start, "m_t_ft")    
         return [[t_ft[e]- self.t[e].exclude(i) for i in range(len(self.t[e]))] for e in range(len(self.t))]
     
     def compute_likelihood(self):
@@ -364,6 +286,7 @@ class Game(object):
     def compute_posterior(self):    
         prior = self.t
         likelihood = self.likelihood
+        #ipdb.set_trace()
         res= [[prior[e][i].filtered(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
         posterior, _ = self.sortTeams(res,self.o)
         return posterior 
@@ -396,7 +319,8 @@ class Game(object):
         return '{}({},{})'.format(c.__name__,self.teams,self.o)
 
 class Time(object):
-    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) , batch_number=None,epsilon=1e-2):
+    def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) 
+    , batch_number=None,epsilon=1e-2):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
@@ -523,23 +447,16 @@ class Time(object):
         return '{}{}'.format(c.__name__,tuple(zip(self.games_composition,self.results)))
 
 class History(object):
-    def __init__(self
-                 , games_composition
-                 , results
-                 , batch_numbers=None
-                 , prior_dict = {} 
-                 , default=None
-                 , epsilon=10**-3):
+    def __init__(self , games_composition , results , batch_numbers=None
+                 , prior_dict = {} , default=None  , epsilon=10**-3):
         self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
         self.batch_numbers = batch_numbers
         if not self.batch_numbers is None:
             self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
             
-        if default is None:
-            self.default = Rating()
-        else:
-            self.default = default
+        "FALTA: agregar environment"
+        self.default = Rating() if default is None else default
         self.epsilon = epsilon
                 
         self.initial_prior= defaultdict(lambda: self.default)
@@ -626,6 +543,7 @@ class History(object):
             
     def through_time(self,online=True):
         i = 0;
+        #ipdb.set_trace()
         while i < len(self):
             print(i, len(self))
             t = None if self.batch_numbers is None else self.batch_numbers[i]
@@ -682,73 +600,43 @@ class History(object):
     def log10_evidence_trueskill(self):
         return np.sum(np.log10(flat(list(map(lambda t: t.evidence, self.times_trueskill )))))
     
-    
-    
     def __len__(self):
         return len(self.games_composition)
     
-    
-    
 class TrueSkill(object):
-    def __init__(self, mu_player=MU_PLAYER, sigma_player=SIGMA_PLAYER
-                 , beta_player=BETA_PLAYER, tau_player = TAU_PLAYER
-                 , mu_teammate=MU_TEAMMATE, sigma_teammate=SIGMA_TEAMMATE
-                 , beta_teammate=BETA_TEAMMATE, tau_teammate = TAU_TEAMMATE
-                 , mu_handicap=MU_HANDICAP, sigma_handicap=SIGMA_HANDICAP
-                 , beta_handicap=BETA_HANDICAP, tau_handicap= TAU_HANDICAP
-                 , draw_probability=DRAW_PROBABILITY):
-        # Player
-        self.mu_player =mu_player 
-        self.sigma_player=sigma_player
-        self.beta_player=beta_player
-        self.tau_player=tau_player
-        # Teammate
-        self.mu_teammate =mu_teammate 
-        self.sigma_teammate=sigma_teammate
-        self.beta_teammate=beta_teammate  
-        self.tau_teammate=tau_teammate
-        # others
+    def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, tau = TAU
+                 , draw_probability=DRAW_PROBABILITY, epsilon=EPSILON):
+        self.mu = mu
+        self.sigma = sigma
+        self.beta = beta
+        self.tau = tau
         self.draw_probability = draw_probability
-    
+        self.epsilon = epsilon
     
     def rating(self, mu=None, sigma=None, beta=None, noise=None):
-        if mu is None:
-            mu = self.mu_player
-        if sigma is None:
-            sigma = self.sigma_player
+        if mu is None: mu = self.mu
+        if sigma is None: sigma = self.sigma
+        if beta is None: beta = self.beta
+        if noise is None: noise = self.tau
         return Rating(mu,sigma,self,beta,noise)
         
-    def skill(self, mu=None, sigma=None):
-        """Initializes new :class"""
-        if mu is None:
-            mu = self.mu_player
-        if sigma is None:
-            sigma = self.sigma_player
-        return Skill(mu, sigma, self)   
-        
-    
-    def team(self, players= None, teammates=None):
-        skills = [ self.Skill(*s) for s in players]
-        synergys = [ self.Synergy(*s) for s in teammates] if not teammates is None else None
-        return Team(skills,synergys )
+    def team(self, members):
+        te = [ self.rating(mu=m.mu,sigma=m.sigma,beta=m.beta,noise=m.noise) for m in members]
+        return Team(te)
     
     def game(self, teams=[], results=[], names=[]):
         return Game(teams,results,names)
     
-    def history(self,games_composition,results, batch_numbers=None, prior_dict = {},epsilon=10**-3  ):
-        print(Rating(mu=self.mu_player,sigma=self.sigma_player,beta=self.beta_player,noise=self.tau_player))
+    def history(self,games_composition,results, batch_numbers=None, prior_dict = {},epsilon=None ):
+        if epsilon is None: epsilon = self.epsilon
         return History(games_composition, results , batch_numbers, prior_dict           
-                 , default=Rating(mu=self.mu_player,sigma=self.sigma_player,env=self, beta=self.beta_player,noise=self.tau_player)
+                 , default=self.Rating()
                  , epsilon=epsilon)
         
     @property
     def Rating(self):
         return self.rating
-    
-    @property
-    def Skill(self):
-        return self.skill
-    
+
     @property
     def Team(self):
         return self.team
@@ -761,7 +649,6 @@ class TrueSkill(object):
     def History(self):
         return self.history
     
-    
     def rate(self,teams,results):
         _teams = [ self.Team(t) for t in teams]
         g = self.Game(_teams,results)
@@ -771,18 +658,14 @@ class TrueSkill(object):
         return setup(env=self)
   
     def __iter__(self):
-        return iter((self.mu_player, self.sigma_player, self.beta_player,self.tau_player
-                     ,self.mu_teammate,self.sigma_teammate,self.beta_teammate,self.tau_teammate
-                     ,self.draw_probability))
+        return iter((self.mu, self.sigma, self.beta,self.tau,self.draw_probability))
 
     
     def __repr__(self):
         c = type(self)
         draw_probability = '%.1f%%' % (self.draw_probability * 100)
         args = ('.'.join([c.__module__, c.__name__]), *iter(self), draw_probability)
-        return ('%s(mu_player=%.3f, sigma_player=%.3f, beta_player=%.3f, tau_player=%.3f, '
-                'mu_teammate=%.3f, sigma_teammate=%.3f, beta_teammate=%.3f, tau_teammate=%.3f, '    
-                'draw_probability=%s%s)' % args)
+        return ('%s(mu=%.3f, sigma=%.3f, beta=%.3f, tau=%.3f, draw_probability=%s%s)' % args)
     
 
 def global_env():
@@ -794,16 +677,10 @@ def global_env():
         setup()
     return global_env.__truesynergy__
 
-def setup(mu_player=MU_PLAYER, sigma_player=SIGMA_PLAYER
-          , beta_player=BETA_PLAYER, tau_player = TAU_PLAYER
-          , mu_teammate=MU_TEAMMATE, sigma_teammate=SIGMA_TEAMMATE
-          , beta_teammate=BETA_TEAMMATE, tau_teammate = TAU_TEAMMATE
-          , draw_probability=DRAW_PROBABILITY, env=None):
+def setup(mu=MU, sigma=SIGMA, beta=BETA, tau=TAU, draw_probability=DRAW_PROBABILITY, env=None):
     """Setups the global environment."""
     if env is None:
-        env = TrueSkill(mu_player, sigma_player, beta_player, tau_player
-                         ,mu_teammate, sigma_teammate, beta_teammate, tau_teammate
-                         ,draw_probability)
+        env = TrueSkill(mu, sigma, beta, tau, draw_probability)
     global_env.__truesynergy__ = env
     return env
 

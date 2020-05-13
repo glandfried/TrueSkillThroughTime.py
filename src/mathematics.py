@@ -16,6 +16,7 @@ from scipy.stats import norm
 import numpy as np
 import copy
 import math
+#import ipdb
 try:
     from numbers import Number
 except ImportError:
@@ -48,12 +49,12 @@ class Gaussian(object):
                 mu = mu.mu
             elif sigma is None:
                 raise TypeError('sigma argument is needed')
-            elif sigma <= 0:
+            elif sigma < 0:
                 raise ValueError('sigma**2 should be greater than 0')
             
             
-            pi = sigma ** -2
-            tau = pi * mu
+            pi = sigma ** -2 if sigma!=0 else inf
+            tau = pi * mu if sigma!=0 else 0 
             
         self.pi = pi
         self.tau = tau
