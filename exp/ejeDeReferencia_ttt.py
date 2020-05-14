@@ -6,7 +6,7 @@ import src as ts
 from importlib import reload  # Python 3.4+ only.
 reload(ts)
 import matplotlib.pyplot as plt
-env = ts.TrueSkill(draw_probability=0,beta_player=1.1667,tau_player=(25/3)*0.1 )
+env = ts.TrueSkill(draw_probability=0,beta=1.1667,tau=(25/3)*0.1 )
 
 plt.close()
 
@@ -99,9 +99,9 @@ prior_dict = {'e0':ts.Rating(mu=20, sigma=0.0001,beta=1,noise=0),
             'e3':ts.Rating(mu=31,sigma=25/6,beta=1,noise=0),'e4':ts.Rating(mu=33,sigma=25/6,beta=1,noise=0)}
 
 reload(ts)
-env_1 = ts.TrueSkill(draw_probability=0,beta_player=1,tau_player=1 )
+env_1 = ts.TrueSkill(draw_probability=0,beta=1,tau=1 )
 history_1 = env_1.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
-env_01 = ts.TrueSkill(draw_probability=0,beta_player=1,tau_player=0.1 )
+env_01 = ts.TrueSkill(draw_probability=0,beta=1,tau=0.1 )
 history_01 = env_01.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
 
 history_1.through_time()
