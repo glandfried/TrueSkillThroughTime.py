@@ -446,15 +446,15 @@ class Time(object):
 
 class History(object):
     def __init__(self , games_composition , results , batch_numbers=None
-                 , prior_dict = {} , default=None  , epsilon=10**-3):
+                 , prior_dict = {} , default=None  , epsilon=10**-3, env=None):
+        self.env = global_env() if env is None  else env
         self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
         self.batch_numbers = batch_numbers
         if not self.batch_numbers is None:
             self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
             
-        "FALTA: agregar environment"
-        self.default = Rating() if default is None else default
+        self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
                 
         self.initial_prior= defaultdict(lambda: self.default)
@@ -543,7 +543,7 @@ class History(object):
         i = 0;
         #ipdb.set_trace()
         while i < len(self):
-            print(i, len(self))
+            start = clock.time()
             t = None if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
             time = Time(games_composition = self.games_composition[i:j]
@@ -553,11 +553,17 @@ class History(object):
                         ,epsilon = self.epsilon
             )                    
             self.times.append(time)
-            if online: self.convergence()
+            if online:
+                
+                self.backward_propagation()
+                self.forward_propagation()
+                
             self.forward_priors.update(time.forward_priors_out)
             for i in time.posteriors:
                 self.learning_curves_online[i].append(time.posteriors[i])
-            i = j 
+            i = j
+            end = clock.time()
+            print('Porcentaje:', int(i/len(self)*1000), i, round(end-start,3),  end='\r')
     
     def convergence(self):
         delta = np.inf
