@@ -12,8 +12,6 @@ print("""
    :license: BSD, see LICENSE for more details.
 """)
 
-
-
 """
 Complejidad computacional:
     0. TTT tarda al menos k*t*2*partidas*(0.003*(1/0.76)). 
@@ -25,6 +23,7 @@ Complejidad computacional:
        - 2.4 (3.16) segundos con 400 partidas por convergencia
        - 1.67 (2.19) horas con 1M partidas por convergencia
     5. La cantidad de convergencias k: ¿de qu\'e depende?
+    6. La t es cantidad de convergencia al interiior de los tiempos
 Objetivos:
     - Ir agregando partidas de tiempos
     - Implementar evidencia de a tiempos
@@ -554,7 +553,6 @@ class History(object):
             )                    
             self.times.append(time)
             if online:
-                
                 self.backward_propagation()
                 self.forward_propagation()
                 
@@ -572,8 +570,8 @@ class History(object):
             delta = min(self.backward_propagation(),delta)            
             delta = min(self.forward_propagation(),delta)
             end = clock.time()
-            print("d: ",round(delta,6),", t: ",round(end-start,4))
-        self.update_learning_curves()
+            print("d: ",round(delta,6),", t: ",round(end-start,4), end='\r')
+        #self.update_learning_curves()
     
     def players(self):
         return set(flat(flat(self.games_composition)))
