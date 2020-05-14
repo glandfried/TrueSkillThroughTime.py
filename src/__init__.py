@@ -284,11 +284,9 @@ class Game(object):
         return likelihood
     
     def compute_posterior(self):    
-        prior = self.t
+        prior = self.teams
         likelihood = self.likelihood
-        #ipdb.set_trace()
-        res= [[prior[e][i].filtered(likelihood[e][i]) for i in range(len(self.t[e]))] for e in range(len(self.t))]    
-        posterior, _ = self.sortTeams(res,self.o)
+        posterior = [[prior[e][i].filtered(likelihood[e][i]) for i in range(len(prior[e]))] for e in range(len(prior))]    
         return posterior 
     
     def compute_evidence(self):
