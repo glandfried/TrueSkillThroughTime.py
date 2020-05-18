@@ -59,7 +59,7 @@ TAU = SIGMA / 100
 #: Default draw probability of the game.
 DRAW_PROBABILITY = .10
 #: Epsilon
-EPSILON = 1e-3
+EPSILON = 1e-1
  
 class Rating(Gaussian):
     def __init__(self, mu=None, sigma=None, env=None, beta=None, noise=None):
@@ -518,6 +518,7 @@ class History(object):
             self.times[t].backward_info(self.backward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
+            print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
     
     def forward_propagation(self):
@@ -529,6 +530,7 @@ class History(object):
             self.times[t].forward_info(self.forward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
+            print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
     
     def update_learning_curves(self):
@@ -565,12 +567,13 @@ class History(object):
     
     def convergence(self):
         delta = np.inf
-        while delta > self.epsilon:
+        for i in range(10):
             start = clock.time()
             delta = min(self.backward_propagation(),delta)            
             delta = min(self.forward_propagation(),delta)
             end = clock.time()
             print("d: ",round(delta,6),", t: ",round(end-start,4), end='\r')
+            if delta < self.epsilon: break
         #self.update_learning_curves()
     
     def players(self):

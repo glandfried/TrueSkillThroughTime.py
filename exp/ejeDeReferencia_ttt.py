@@ -104,9 +104,15 @@ history_1 = env_1.History(composition, pos,batch_number ,prior_dict , epsilon=0.
 env_01 = ts.TrueSkill(draw_probability=0,beta=1,tau=0.1 )
 history_01 = env_01.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
 
+#import dill
+#with open("prueba.pickle", "wb") as output_file:
+#    dill.dump(history_1, output_file)
+
 history_1.through_time()
 history_1.trueSkill()
 history_01.trueSkill()
+
+
 np.log((10**history_01.log10_evidence_trueskill())/(10**history_1.log10_evidence_trueskill()))
 np.log((10**history_01.log10_evidence_trueskill())/(10**history_1.log10_online_evidence()))
 np.log((10**history_1.log10_evidence_trueskill())/(10**history_1.log10_online_evidence()))
