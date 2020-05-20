@@ -121,10 +121,16 @@ class Gaussian(object):
         return 2. - r if x < 0 else r
     
     def cdf(self, x, mu=0, sigma=1):
+        """
+        TODO: eliminar mu y sigma y usar el mu y sigma de self
+        """
         """Cumulative distribution function"""
         return 0.5 * self.erfc(-(x - mu) / (sigma * math.sqrt(2)))
 
     def pdf(self, x, mu=0, sigma=1):
+        """
+        TODO: eliminar mu y sigma y usar el mu y sigma de self
+        """
         """Probability density function"""
         return (1 / math.sqrt(2 * math.pi) * abs(sigma) *
             math.exp(-(((x - mu) / abs(sigma)) ** 2 / 2)))
