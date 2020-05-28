@@ -108,6 +108,10 @@ history_01 = env_01.History(composition, pos,batch_number ,prior_dict , epsilon=
 #with open("prueba.pickle", "wb") as output_file:
 #    dill.dump(history_1, output_file)
 
+history_1.times[0].game_time/12
+len(history_1.times[0])
+
+
 history_1.through_time()
 history_1.trueSkill()
 history_01.trueSkill()
