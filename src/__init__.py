@@ -423,7 +423,7 @@ class Time(object):
     def convergence(self):
         delta = np.inf
         iterations = 0
-        while delta > self.epsilon:
+        while delta > self.epsilon and iterations < 10:
             delta = self.iteration()
             #print(delta)
             iterations += 1
@@ -556,8 +556,7 @@ class History(object):
             )                    
             self.times.append(time)
             if online:
-                self.backward_propagation()
-                self.forward_propagation()
+                self.convergence()
                 
             self.forward_priors.update(time.forward_priors_out)
             for i in time.posteriors:
