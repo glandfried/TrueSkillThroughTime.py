@@ -332,7 +332,7 @@ class Time(object):
         self.forward_priors = {}
         for i in self.players:
             self.forward_priors[i] = forward_priors[i]
-        
+        self.priors = dict(self.forward_priors)
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
         self.epsilon = epsilon
