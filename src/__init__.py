@@ -339,7 +339,7 @@ class Time(object):
         self.game_time = 0
         self.evidence = []
         self.last_evidence = []
-        self.iteration()
+        self.convergence()
     
     
     def __len__(self):
@@ -413,6 +413,11 @@ class Time(object):
                     max_delta = max(abs(game.likelihood[te][i].mu - self.likelihoods[n][g].mu),max_delta)
                     self.likelihoods[n][g] = game.likelihood[te][i]
             if not (len(self.evidence) > g):
+                """
+                TODO: 
+                    la evidencia debe ser calculada con el forward_prior,
+                    no con el within prior.
+                """
                 self.evidence.append(game.evidence)
                 self.last_evidence.append(game.evidence)
             else:
