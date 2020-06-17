@@ -250,18 +250,8 @@ class Game(object):
                 )
             
             diff_messages[0][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-            
-            team_perf_messages[i+1][1] = (
-                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
-                    - 
-                    diff_messages[i][1]
-                )
-            team_perf_messages[i][2] = (
-                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
-                    - 
-                    diff_messages[i][1]
-                )
         
+        #ipdb.set_trace()
         team_perf_messages[0][2] = np.prod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
         
         i = len(self.t)-2
@@ -292,7 +282,7 @@ class Game(object):
     def compute_evidence(self):
         res = 1
         for d in self.d:
-            res *= d.cdf(d.mu/d.sigma)
+            res *= 1-d.cdf(0)
         return res
     
     @property
@@ -318,7 +308,7 @@ class Game(object):
 
 class Time(object):
     def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) 
-    , batch_number=None,epsilon=1e-2):
+    , batch_number=None,last_batch=defaultdict(lambda: None),epsilon=1e-2):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
@@ -329,9 +319,15 @@ class Time(object):
         self.played = {}
         for i in self.players:
             self.played[i] = self.games_played(i) 
+        self.time_elapsed = {}
+        for i in self.players:
+            elapsed = 0 if last_batch[i] is None else last_batch[i] - batch_number
+            self.time_elapsed[i] = elapsed  
+        
         self.forward_priors = {}
         for i in self.players:
-            self.forward_priors[i] = forward_priors[i]
+            self.forward_priors[i] = forward_priors[i].forget(self.time_elapsed[i])
+        
         self.priors = dict(self.forward_priors)
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))    
@@ -368,14 +364,14 @@ class Time(object):
     def forward_priors_out(self):
         res = {}
         for i in self.players:
-            res[i] = self.forward_posterior(i).forget(1)
+            res[i] = self.forward_posterior(i).forget(0)
         return res
 
     @property
     def backward_priors_out(self):
         res = {}
         for i in self.players:
-            res[i] = self.backward_posterior(i).forget(1)
+            res[i] = self.backward_posterior(i).forget(self.time_elapsed[i])
         return res    
         
     @property
@@ -442,7 +438,7 @@ class Time(object):
         
     def forward_info(self,forward_priors):
         for i in self.players:
-            self.forward_priors[i] = forward_priors[i]
+            self.forward_priors[i] = forward_priors[i].forget(self.time_elapsed[i])
         return self.convergence()
         
     def __repr__(self):
@@ -452,6 +448,7 @@ class Time(object):
 class History(object):
     def __init__(self , games_composition , results , batch_numbers=None
                  , prior_dict = {} , default=None  , epsilon=10**-3, env=None):
+        
         self.env = global_env() if env is None  else env
         self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
@@ -467,6 +464,8 @@ class History(object):
         self.forward_priors = self.initial_prior.copy()
         self.backward_priors  = defaultdict(lambda: Gaussian())
         self.times = []
+        
+        self.last_batch = defaultdict(lambda: None)
         
         ############
         # Por si queremos comparar con trueskill
@@ -524,7 +523,6 @@ class History(object):
             self.times[t].backward_info(self.backward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
-            print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
     
     def forward_propagation(self):
@@ -536,7 +534,7 @@ class History(object):
             self.times[t].forward_info(self.forward_priors)
             new = self.times[t].posteriors
             delta = max(self.delta(new,old),delta)
-            print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
+            #print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
     
     def update_learning_curves(self):
@@ -549,26 +547,28 @@ class History(object):
     def through_time(self,online=True):
         i = 0;
         #ipdb.set_trace()
+        print("Start first pass")
+        start = clock.time()
         while i < len(self):
-            start = clock.time()
             t = None if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
             time = Time(games_composition = self.games_composition[i:j]
                         ,results = self.results[i:j]
                         ,forward_priors = self.forward_priors
                         ,batch_number = t
+                        ,last_batch = self.last_batch
                         ,epsilon = self.epsilon
             )                    
+            self.last_batch.update(dict([(p,t) for p in time.players]))
             self.times.append(time)
             if online:
                 self.convergence()
-                
             self.forward_priors.update(time.forward_priors_out)
             for i in time.posteriors:
                 self.learning_curves_online[i].append(time.posteriors[i])
             i = j
-            end = clock.time()
-            print('Porcentaje:', int(i/len(self)*1000), i, round(end-start,3),  end='\r')
+        end = clock.time()
+        print("End first pass:", round(end-start,3))
     
     def convergence(self):
         delta = np.inf
@@ -577,9 +577,9 @@ class History(object):
             delta = min(self.backward_propagation(),delta)            
             delta = min(self.forward_propagation(),delta)
             end = clock.time()
-            print("d: ",round(delta,6),", t: ",round(end-start,4), end='\r')
+            print("d: ",round(delta,6),", t: ",round(end-start,4))#, end='\r')
             if delta < self.epsilon: break
-        #self.update_learning_curves()
+        self.update_learning_curves()
     
     def players(self):
         return set(flat(flat(self.games_composition)))

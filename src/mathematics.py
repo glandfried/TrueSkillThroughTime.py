@@ -76,7 +76,8 @@ class Gaussian(object):
         
         def v_win(t, draw_margin=0):
             #t = t - draw_margin
-            return (self.pdf(t) / self.cdf(t))# if denom else -x
+            z = Gaussian(0,1)
+            return (z.pdf(t) / z.cdf(t))# if denom else -x
         
         def w_win(t, draw_margin=0):
             #t = t - draw_margin
@@ -120,35 +121,15 @@ class Gaussian(object):
         )))
         return 2. - r if x < 0 else r
     
-    def cdf(self, x, mu=0, sigma=1):
-        """
-        TODO: eliminar mu y sigma y usar el mu y sigma de self
-        """
+    def cdf(self, x):
         """Cumulative distribution function"""
-        return 0.5 * self.erfc(-(x - mu) / (sigma * math.sqrt(2)))
+        return 0.5 * self.erfc(-(x - self.mu) / (self.sigma * math.sqrt(2)))
 
-    def pdf(self, x, mu=0, sigma=1):
-        """
-        TODO: eliminar mu y sigma y usar el mu y sigma de self
-        """
+    def pdf(self, x):
         """Probability density function"""
-        return (1 / math.sqrt(2 * math.pi) * abs(sigma) *
-            math.exp(-(((x - mu) / abs(sigma)) ** 2 / 2)))
+        return ( (1 / ( math.sqrt(2 * math.pi) * self.sigma ))
+                *  math.exp(-( ((x - self.mu)**2) / ((self.sigma ** 2) * 2) ) ) ) 
 
-    '''
-    def cdf(self, x, mu=0, sigma=1):
-        t = x-mu;
-        y = 0.5*self.erfc(-t/(sigma*np.sqrt(2.0)));
-        if y>1.0:
-            y = 1.0;
-        return y
-
-    def pdf(self, x, mu=0, sigma=1):
-        u = (x-mu)/abs(sigma)
-        y = (1/(np.sqrt(2*np.pi)*abs(sigma)))*np.exp(-u*u/2)
-        return y
-    '''
-    
     def modify(self, other):
         self.tau, self.pi = other.tau, other.pi
         

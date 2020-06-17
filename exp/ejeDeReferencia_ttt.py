@@ -94,13 +94,16 @@ while u < universos:#u=0
         t = t + 1 
     u = u + 1
    
-prior_dict = {'e0':ts.Rating(mu=20, sigma=0.0001,beta=1,noise=0),
+prior_dict = {'e0':ts.Rating(mu=20, sigma=0.001,beta=1,noise=0),
             'e1':ts.Rating(mu=25,sigma=25/6,beta=1,noise=0),'e2':ts.Rating(mu=29,sigma=25/6,beta=1,noise=0), 
             'e3':ts.Rating(mu=31,sigma=25/6,beta=1,noise=0),'e4':ts.Rating(mu=33,sigma=25/6,beta=1,noise=0)}
 
 reload(ts)
+
+
+
 env_1 = ts.TrueSkill(draw_probability=0,beta=1,tau=1 )
-history_1 = env_1.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
+history_1 = env_1.History(composition, pos, batch_number  ,prior_dict , epsilon=0.1)
 env_01 = ts.TrueSkill(draw_probability=0,beta=1,tau=0.1 )
 history_01 = env_01.History(composition, pos,batch_number ,prior_dict , epsilon=0.1)
 
@@ -132,6 +135,47 @@ for i in history_1.learning_curves:
     plt.plot(history_1.learning_curves[i])
 plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
 
+
+"""
+Probando tau en funcion del tiempo
+
+Pregunta:
+    - Como cambiar el paso temporal conociendo la curva de aprendizaje?
+
+
+"""
+reload(ts)
+
+def probabilidad_de_ganar(escala=25/6,mu_a=30,distancia_b=None,incertidumbre=0):
+    if distancia_b is None: distancia_b = escala
+    mu_b = mu_a - distancia_b 
+    ana = ts.Gaussian(mu_a, np.sqrt(escala**2 + incertidumbre**2))
+    berta = ts.Gaussian(mu_b, np.sqrt(escala**2 + incertidumbre**2))
+    1-(ana-berta).cdf(0)
+
+
+
+def curvaDeAprendizaje(t,skill_0=15,alpha=0.2,c=0):
+    return skill_0*(t**alpha)+c
+plt.plot(curvaDeAprendizaje(np.arange(2,intentos+2)))
+
+#skill_diff = list(curvaDeAprendizaje(np.arange(2,intentos+2))-curvaDeAprendizaje(np.arange(1,intentos+1)))
+
+batchs_size = curvaDeAprendizaje(np.arange(2,intentos+2))-curvaDeAprendizaje(np.arange(1,intentos+1))
+
+batchs_size  = (list(np.cumsum(batchs_size)) *6)
+reload(ts)
+env_1 = ts.TrueSkill(draw_probability=0,beta=25/6,tau=4 )
+history_1 = env_1.History(composition, pos, batchs_size  ,prior_dict , epsilon=0.1)
+history_1.through_time(online=False)
+history_1.convergence()
+for i in history_1.learning_curves:
+    plt.plot(history_1.learning_curves[i])
+plt.plot(curvaDeAprendizaje(np.arange(1,intentos)))
+
+reload(ts)
+ts.Rating(mu=20, sigma=0.001,beta=1,noise=0).sigma
+history_1.times[-1].evidence
 
 
 individual_evidence_ttt = history.individual_evidence('TTT')
