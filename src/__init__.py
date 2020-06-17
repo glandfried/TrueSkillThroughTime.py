@@ -455,7 +455,9 @@ class History(object):
         self.batch_numbers = batch_numbers
         if not self.batch_numbers is None:
             self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
-            
+        else:
+            self.batch_numbers = list(range(len(self)))
+        
         self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
                 
