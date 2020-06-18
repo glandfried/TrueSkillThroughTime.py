@@ -454,10 +454,7 @@ class History(object):
         self.results = results
         self.batch_numbers = batch_numbers
         if not self.batch_numbers is None:
-            self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))
-        else:
-            self.batch_numbers = list(range(len(self)))
-        
+            self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))  
         self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
                 
@@ -492,7 +489,7 @@ class History(object):
     
         
     def trueSkill(self):
-        i = 0;
+        i = 0
         while i < len(self):
             t = None if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
@@ -547,12 +544,12 @@ class History(object):
 
             
     def through_time(self,online=True):
-        i = 0;
+        i = 0
         #ipdb.set_trace()
         print("Start first pass")
         start = clock.time()
         while i < len(self):
-            t = None if self.batch_numbers is None else self.batch_numbers[i]
+            t = 1 if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
             time = Time(games_composition = self.games_composition[i:j]
                         ,results = self.results[i:j]
@@ -561,7 +558,10 @@ class History(object):
                         ,last_batch = self.last_batch
                         ,epsilon = self.epsilon
             )                    
-            self.last_batch.update(dict([(p,t) for p in time.players]))
+            if not self.batch_numbers is None:
+                self.last_batch.update(dict([(p,t) for p in time.players]))
+            else:
+                self.last_batch.update(dict([(p,0) for p in time.players]))
             self.times.append(time)
             if online:
                 self.convergence()
