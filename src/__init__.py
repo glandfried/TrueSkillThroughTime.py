@@ -308,13 +308,14 @@ class Game(object):
 
 class Time(object):
     def __init__(self,games_composition,results,forward_priors=defaultdict(lambda: Rating()) 
-    , batch_number=None,last_batch=defaultdict(lambda: None),epsilon=1e-2):
+    , batch_number=None,last_batch=defaultdict(lambda: None),match_id=None,epsilon=1e-2):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
         self.games_composition = games_composition
         self.results = results
         self.batch_number = batch_number
+        self.match_id = match_id
         self.players = set(flat(flat(games_composition) ))
         self.played = {}
         for i in self.players:
@@ -336,6 +337,8 @@ class Time(object):
         self.evidence = []
         self.last_evidence = []
         self.convergence()
+        self.match_evidence = dict(zip(self.match_id,self.evidence))
+        self.match_last_evidence = None
     
     
     def __len__(self):
@@ -429,6 +432,7 @@ class Time(object):
             #print(delta)
             iterations += 1
         #print(iterations)
+        self.match_last_evidence = dict(zip(self.match_id,self.last_evidence))
         return iterations
     
     def backward_info(self,backward_priors):
@@ -447,14 +451,15 @@ class Time(object):
 
 class History(object):
     def __init__(self , games_composition , results , batch_numbers=None
-                 , prior_dict = {} , default=None  , epsilon=10**-3, env=None):
+                 , prior_dict = {} , default=None  , match_id = None , epsilon=10**-3, env=None):
         
         self.env = global_env() if env is None  else env
         self.games_composition = list(map(lambda xs: xs if isinstance(xs[0],list) else [ [x] for x in xs] ,games_composition))
         self.results = results
         self.batch_numbers = batch_numbers
+        self.match_id = list(range(len(self))) if match_id is None else match_id
         if not self.batch_numbers is None:
-            self.games_composition, self.results, self.batch_numbers = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers), key=lambda x: x[2]))))  
+            self.games_composition, self.results, self.batch_numbers, self.match_id = map(lambda x: list(x),list(zip(*sorted(zip(self.games_composition,self.results, self.batch_numbers,self.match_id), key=lambda x: x[2]))))  
         self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
                 
@@ -463,7 +468,8 @@ class History(object):
         self.forward_priors = self.initial_prior.copy()
         self.backward_priors  = defaultdict(lambda: Gaussian())
         self.times = []
-        
+        self.match_time = {}
+
         self.last_batch = defaultdict(lambda: None)
         
         ############
@@ -556,8 +562,10 @@ class History(object):
                         ,forward_priors = self.forward_priors
                         ,batch_number = t
                         ,last_batch = self.last_batch
+                        ,match_id = self.match_id[i:j]
                         ,epsilon = self.epsilon
-            )                    
+            )
+            self.match_time.update({m:time for m in self.match_id[i:j]})
             if not self.batch_numbers is None:
                 self.last_batch.update(dict([(p,t) for p in time.players]))
             else:
