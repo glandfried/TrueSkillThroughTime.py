@@ -11,10 +11,14 @@ env = th.TrueSkill(draw_probability=0,tau=(25/3)*0.2, beta=0)
 th.Rating()
 env.Rating()
 
-history = env.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6],[2,5],[1,4]], [[0,1],[1,0],[0,1]]*4+[[0,1]]*3)
+composition = [[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6],[2,5],[1,4]]
+results = [[0,1],[1,0],[0,1]]*4+[[0,1]]*3
+#batches = list(range(len(results)))
+history = env.History(composition,results )
 history.through_time(online=False)
 history.convergence()    
 history.forward_priors
+
 
 
 history.learning_curves[1]
@@ -22,6 +26,7 @@ history.times[3].backward_posteriors[1]
 history.forward_priors[6].noise
 for i in history.learning_curves:
     plt.plot(history.learning_curves[i])
+plt.show()
 
 history = th.History([[1,2],[1,3],[[2],[3]]]*2+[[4,5],[4,6],[[5],[6]]]*2+[[3,6]]*4,[[0,1],[1,0],[0,1]]*4+[[0,1]]*4)
 
@@ -33,8 +38,9 @@ Hacer experimento
 3 jugadores fijos. (20, 25, 30)
 Uno solo apende, de 22 a 28.
 """
-
+plt.close()
 plt.plot(learning_curve(np.arange(1,100),22))
+#plt.show()
 
 r0 = th.Rating(20,0.001)
 r1 = th.Rating(25,0.001)

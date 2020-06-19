@@ -39,7 +39,7 @@ from collections.abc import Iterable
 from .mathematics import Gaussian
 #from mathematics import Gaussian
 import time as clock
-import ipdb
+#import ipdb
 
 BETA = 25/6
  
