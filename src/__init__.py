@@ -484,12 +484,13 @@ class History(object):
         
         #self.trueSkill()
         #self.through_time()
+
         #self.through_time(online=False); self.convergence()    
     
     def end_batch(self,i):
         t = None if self.batch_numbers is None else self.batch_numbers[i]
         j = i + 1
-        while (j < len(self)) and (not t is None) and (self.batch_numbers[j] <= t):
+        while (j < len(self)) and (not t is None) and (self.batch_numbers[j] == t):
             j += 1
         return j
     
@@ -574,8 +575,8 @@ class History(object):
             if online:
                 self.convergence()
             self.forward_priors.update(time.forward_priors_out)
-            for i in time.posteriors:
-                self.learning_curves_online[i].append(time.posteriors[i])
+            for p in time.posteriors:
+                self.learning_curves_online[p].append(time.posteriors[p])
             i = j
         end = clock.time()
         print("End first pass:", round(end-start,3))
@@ -632,6 +633,7 @@ class TrueSkill(object):
         self.tau = tau
         self.draw_probability = draw_probability
         self.epsilon = epsilon
+        self.make_as_global()
     
     def rating(self, mu=None, sigma=None, beta=None, noise=None):
         if mu is None: mu = self.mu
