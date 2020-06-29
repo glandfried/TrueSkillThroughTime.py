@@ -140,20 +140,21 @@ class Gaussian(object):
         return Gaussian(self.mu-other.mu, math.sqrt(self.sigma**2 + other.sigma**2) )
     
     def __mul__(self, other):
-        if isinstance(other, Gaussian):
-            pi, tau = self.pi + other.pi, self.tau + other.tau
-            res = Gaussian(pi=pi, tau=tau)
-        else:
-            mu, sigma = self.mu * other, self.sigma * other
-            res = Gaussian(mu=mu, sigma=sigma)
+        #if isinstance(other, Gaussian):
+        pi, tau = self.pi + other.pi, self.tau + other.tau
+        res = Gaussian(pi=pi, tau=tau)
+        #else:
+        #    print("hola")
+        #    mu, sigma = self.mu * other, self.sigma * other
+        #    res = Gaussian(mu=mu, sigma=sigma)
         return res
 
     def __truediv__(self, other):
-        if isinstance(other, Gaussian):
-            pi, tau = self.pi - other.pi, self.tau - other.tau
-            res = Gaussian(pi=pi, tau=tau)
-        else:
-            res = self*(1/other)
+        #if isinstance(other, Gaussian):
+        pi, tau = self.pi - other.pi, self.tau - other.tau
+        res = Gaussian(pi=pi, tau=tau)
+        #else:
+        #    res = self*(1/other)
         return res
 
     __div__ = __truediv__  # for Python 2
