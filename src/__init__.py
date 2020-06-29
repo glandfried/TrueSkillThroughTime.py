@@ -29,9 +29,8 @@ Objetivos:
     - Ir agregando partidas de tiempos
     - Implementar evidencia de a tiempos
 """
-
+import math
 from scipy.stats import entropy
-import numpy as np
 #from datetime import datetime
 #from datetime import timedelta
 from collections import defaultdict
@@ -59,8 +58,7 @@ BETA = SIGMA / 2
 #: Default dynamic factor
 TAU = SIGMA / 100
 #: Default draw probability of the game.
-# Mejor que la proba sea cero?
-DRAW_PROBABILITY = .10
+DRAW_PROBABILITY = 0.0
 #: Epsilon
 EPSILON = 1e-1
 # Agregamos, los valores de handicap por default?
@@ -146,10 +144,6 @@ class Rating(Gaussian):
     def __init__(self, mu=None, sigma=None, env=None, beta=None, noise=None):
         # el global solo sirve si hay synergia, lo sacamos?
         self.env = global_env() if env is None else env
-        if isinstance(mu, tuple):
-            mu, sigma = mu
-        elif isinstance(mu, Gaussian):
-            mu, sigma = mu.mu, mu.sigma
         mu = self.env.mu if mu is None else mu
         sigma = self.env.sigma if sigma is None else sigma
         self.beta = self.env.beta if beta is None else beta
@@ -159,17 +153,20 @@ class Rating(Gaussian):
     # Pongo un tope de maxima incertidumbre, por eso el min
 
     def forget(self, t=1):
-        new = Gaussian(self, self.noise*t)
-        return Rating(mu=new.mu, sigma=min(new.sigma, self.env.sigma),
+        new_sigma = math.sqrt(self.sigma**2 + (self.noise*t)**2)
+        return Rating(mu=self.mu, sigma=min(new_sigma, self.env.sigma),
                       beta=self.beta, noise=self.noise,
                       env=self.env)
-
+    
     @property
     def performance(self):
-        return Gaussian(self, self.beta)
+        new_sigma = math.sqrt(self.sigma**2 + self.beta**2)
+        return Gaussian(self.mu, new_sigma)
 
     def play(self):
-        return np.random.normal(*self.performance)
+        """TODO: dont use numpy"""
+        return None
+        #return np.random.normal(*self.performance)
 
     def filtered(self, other):
         res = self*other
@@ -193,8 +190,7 @@ class Rating(Gaussian):
 class Team(object):
     def __init__(self, ratings=None):
         self.ratings = ratings
-        self.prior = self.ratings
-        self.inverse_prior = [Gaussian() for _ in self.ratings]
+        self.performance = Gaussian(self.mu,self.sigma)
         #self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
         #super(Team, self).__init__(self.mu, self.sigma)
 
@@ -203,20 +199,8 @@ class Team(object):
         return sum(map(lambda s: s.mu, self.ratings))
     @property
     def sigma(self):
-        return np.sqrt(np.sum(list(map(lambda s: s.performance.sigma**2,
+        return math.sqrt(sum(list(map(lambda s: s.sigma**2 + s.beta**2,
                        self.ratings))))
-
-    @property
-    def performance(self):
-        return np.sum([(self.prior[i].performance*self.inverse_prior[i])
-                        for i in range(len(self))])
-
-    def back_info(self, inverse_prior):
-        self.inverse_prior = inverse_prior
-
-    def for_info(self, prior):
-        self.prior = prior
-        self.ratings = prior
 
     def __len__(self):
         return len(self.ratings)
@@ -226,7 +210,7 @@ class Team(object):
 
     def exclude(self, key):
         mu = self.mu - self[key].mu
-        sigma = np.sqrt(self.sigma**2 - self[key].sigma**2)
+        sigma = math.sqrt(self.sigma**2 - self[key].sigma**2)
         #ipdb.set_trace()
         return Gaussian(mu=mu, sigma=sigma)
 
@@ -257,8 +241,7 @@ class Game(object):
         teams_sorted, index_sorted, _ = list(zip(*teams_index_sorted))
         self.o = list(index_sorted)
         self.t = teams_sorted
-        self.d = [self.t[e].performance - self.t[e+1].performance
-                  for e in range(len(self.t)-1)]
+        self.d = [self.t[e].performance - self.t[e+1].performance for e in range(len(self.t)-1)]
 
         #self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
         #self.prior = [[r for r in te.ratings] for te in self.teams]
@@ -293,61 +276,61 @@ class Game(object):
         diff_messages = [[Gaussian(), Gaussian()] for i in range(len(self.t)-1)]
 
         k = 0
-        delta = np.inf
+        delta = math.inf
         while delta > 1e-4:
             delta = 0
             for i in range(len(self.t)-2):  # i=0
-                d_old = np.prod(diff_messages[i])
+                d_old = list_prod(diff_messages[i])
                 diff_messages[i][0] = (
-                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
+                    list_prod(team_perf_messages[i])/team_perf_messages[i][2]
                     -
-                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                 )
 
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
 
-                delta = max(delta, thisDelta(d_old, np.prod(diff_messages[i])))
+                delta = max(delta, thisDelta(d_old, list_prod(diff_messages[i])))
 
                 team_perf_messages[i+1][1] = (
-                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
+                    list_prod(team_perf_messages[i])/team_perf_messages[i][2]
                     - diff_messages[i][1])
 
             for i in range(len(self.t)-2, 0, -1):  # i=8
-                d_old = np.prod(diff_messages[i])
+                d_old = list_prod(diff_messages[i])
 
                 diff_messages[i][0] = (
-                    np.prod(team_perf_messages[i]) / team_perf_messages[i][2]
+                    list_prod(team_perf_messages[i]) / team_perf_messages[i][2]
                     -
-                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                 )
 
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-                delta = max(delta, thisDelta(d_old,np.prod(diff_messages[i])))
+                delta = max(delta, thisDelta(d_old,list_prod(diff_messages[i])))
                 team_perf_messages[i][2] = (
-                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                     + diff_messages[i][1])
             k += 1
 
         if len(self.t) == 2:
             i = 0
             diff_messages[0][0] = (
-                    np.prod(team_perf_messages[i])/team_perf_messages[i][2]
+                    list_prod(team_perf_messages[i])/team_perf_messages[i][2]
                     -
-                    np.prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
+                    list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                 )
 
             diff_messages[0][1] = diff_messages[i][0].trunc/diff_messages[i][0]
 
         # ipdb.set_trace()
-        team_perf_messages[0][2] = np.prod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
+        team_perf_messages[0][2] = list_prod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
 
         i = len(self.t)-2
-        team_perf_messages[i+1][1] = ((np.prod(team_perf_messages[i])
+        team_perf_messages[i+1][1] = ((list_prod(team_perf_messages[i])
                                       / team_perf_messages[i][2])
                                       - diff_messages[i][1])
         res = [Gaussian() for i in range(len(self.t))]
         for i in range(len(self.t)):
-            res[i] = np.prod(team_perf_messages[i])/team_perf_messages[i][0]
+            res[i] = list_prod(team_perf_messages[i])/team_perf_messages[i][0]
 
         return res
 
@@ -444,7 +427,7 @@ class Time(object):
         return set(res)
 
     def time_likelihood(self, i):
-        return np.prod([self.likelihoods[i][k] for k in self.played[i]])
+        return list_prod([self.likelihoods[i][k] for k in self.played[i]])
 
     def forward_posterior(self, i):
         return self.forward_priors[i].filtered(self.time_likelihood(i))
@@ -523,7 +506,7 @@ class Time(object):
         return max_delta
 
     def convergence(self):
-        delta = np.inf
+        delta = math.inf
         iterations = 0
         while delta > self.epsilon and iterations < 10:
             delta = self.iteration()
@@ -618,7 +601,7 @@ class History(object):
                 self.learning_curves_trueskill[i].append(time.posteriors[i])
 
     def delta(self, new, old):
-        return np.max([abs(new[i].mu - old[i].mu) for i in old])
+        return max([abs(new[i].mu - old[i].mu) for i in old])
 
     def backward_propagation(self):
         self.backward_priors = defaultdict(lambda: Gaussian())
@@ -679,7 +662,7 @@ class History(object):
         print("End first pass:", round(end-start, 3))
 
     def convergence(self):
-        delta = np.inf
+        delta = math.inf
         for i in range(10):
             start = clock.time()
             delta = min(self.backward_propagation(), delta)
@@ -711,16 +694,13 @@ class History(object):
         return res
 
     def log10_evidence(self):
-        return np.sum(np.log10(flat(list(map(lambda t: t.last_evidence,
-                      self.times )))))
+        return sum([math.log10(e) for t in self.times for e in t.last_evidence])
 
     def log10_online_evidence(self):
-        return np.sum(np.log10(flat(list(map(lambda t: t.evidence,
-                      self.times)))))
-
+        return sum([math.log10(e) for t in self.times for e in t.evidence])
+        
     def log10_evidence_trueskill(self):
-        return np.sum(np.log10(flat(list(map(lambda t: t.evidence,
-                      self.times_trueskill)))))
+        return sum([math.log10(e) for t in self.times_trueskill for e in t.evidence])
 
     def __len__(self):
         return len(self.games_composition)
@@ -740,7 +720,7 @@ def setup(mu=MU, sigma=SIGMA, beta=BETA, tau=TAU,
           draw_probability=DRAW_PROBABILITY, env=None):
     """Setups the global environment."""
     if env is None:
-        env = TrueSkillTrueSkillTrueSkill(mu=mu, sigma=sigma, beta=beta, tau=tau,
+        env = TrueSkill(mu=mu, sigma=sigma, beta=beta, tau=tau,
                         draw_probability=draw_probability)
     global_env.__truesynergy__ = env
     return env
@@ -756,3 +736,15 @@ def flat(xs):
     else:
         res = sum(xs, [])
     return res
+
+def list_prod(xs):
+    res = xs[0]
+    for i in range(1,len(xs)):
+        res *= xs[i]
+    return res 
+
+def list_sum(xs):
+    res = xs[0]
+    for i in range(1,len(xs)):
+        res += xs[i]
+    return res 
