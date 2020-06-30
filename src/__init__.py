@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-print("""
+
+#print(
+"""
    Trueskill
    ~~~~~~~~~
    :copyright: (c) 2012-2016 by Heungsub Lee.
@@ -11,7 +13,8 @@ print("""
    ~~~~~~~~~
    :copyright: (c) 2019-2020 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
-""")
+"""
+#)
 
 """
 Complejidad computacional:
@@ -30,6 +33,7 @@ Objetivos:
     - Implementar evidencia de a tiempos
 """
 import math
+import numpy as np
 from scipy.stats import entropy
 #from datetime import datetime
 #from datetime import timedelta
@@ -44,7 +48,7 @@ BETA = 25/6
 
  # global_env es solo para synergia
 __all__ = [
-    'TrueSkill', 'Rating' ,'Team', 'Game', 'History',
+    'TrueSkill', 'Rating', 'Team', 'Game', 'History',
     'global_env', 'setup',
     'MU', 'SIGMA', 'BETA', 'TAU', 'DRAW_PROBABILITY', 'EPSILON'
 ]
@@ -157,16 +161,17 @@ class Rating(Gaussian):
         return Rating(mu=self.mu, sigma=min(new_sigma, self.env.sigma),
                       beta=self.beta, noise=self.noise,
                       env=self.env)
-    
+
     @property
     def performance(self):
         new_sigma = math.sqrt(self.sigma**2 + self.beta**2)
         return Gaussian(self.mu, new_sigma)
 
+    # no se usa...
     def play(self):
         """TODO: dont use numpy"""
         return None
-        #return np.random.normal(*self.performance)
+        # return np.random.normal(*self.performance)
 
     def filtered(self, other):
         res = self*other
@@ -190,17 +195,16 @@ class Rating(Gaussian):
 class Team(object):
     def __init__(self, ratings=None):
         self.ratings = ratings
-        self.performance = Gaussian(self.mu,self.sigma)
-        #self.old_likelihood = [ [ Gaussian() for i in te] for te in self.ratings ]
-        #super(Team, self).__init__(self.mu, self.sigma)
+        self.performance = Gaussian(self.mus, self.sigmas)
 
     @property
-    def mu(self):
+    def mus(self):
         return sum(map(lambda s: s.mu, self.ratings))
+
     @property
-    def sigma(self):
+    def sigmas(self):
         return math.sqrt(sum(list(map(lambda s: s.sigma**2 + s.beta**2,
-                       self.ratings))))
+                         self.ratings))))
 
     def __len__(self):
         return len(self.ratings)
@@ -211,7 +215,6 @@ class Team(object):
     def exclude(self, key):
         mu = self.mu - self[key].mu
         sigma = math.sqrt(self.sigma**2 - self[key].sigma**2)
-        #ipdb.set_trace()
         return Gaussian(mu=mu, sigma=sigma)
 
     def __repr__(self):
@@ -241,11 +244,11 @@ class Game(object):
         teams_sorted, index_sorted, _ = list(zip(*teams_index_sorted))
         self.o = list(index_sorted)
         self.t = teams_sorted
-        self.d = [self.t[e].performance - self.t[e+1].performance for e in range(len(self.t)-1)]
-
-        #self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
-        #self.prior = [[r for r in te.ratings] for te in self.teams]
-        #self.inverse_prior = [[Gaussian() for r in te.ratings] for te in self.teams]
+        self.d = [self.t[e].performance - self.t[e+1].performance
+                  for e in range(len(self.t)-1)]
+        # self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
+        # self.prior = [[r for r in te.ratings] for te in self.teams]
+        # self.inverse_prior = [[Gaussian() for r in te.ratings] for te in self.teams]
 
         self.likelihood = self.compute_likelihood()  # 0.0025
         self.posterior = self.compute_posterior()  # 0.00025
@@ -264,8 +267,8 @@ class Game(object):
 
     @property
     def m_t_ft(self):
-        #truncadas = 0
-        def thisDelta(old,new):
+        # truncadas = 0
+        def thisDelta(old, new):
             mu_old, sigma_old = old
             mu_new, sigma_new = new
             return max(abs(mu_old-mu_new), abs(sigma_old-sigma_new))
@@ -273,7 +276,8 @@ class Game(object):
         team_perf_messages = [[self.t[e].performance, Gaussian(), Gaussian()]
                               for e in range(len(self.t))]
 
-        diff_messages = [[Gaussian(), Gaussian()] for i in range(len(self.t)-1)]
+        diff_messages = [[Gaussian(), Gaussian()]
+                         for i in range(len(self.t)-1)]
 
         k = 0
         delta = math.inf
@@ -305,7 +309,7 @@ class Game(object):
                 )
 
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-                delta = max(delta, thisDelta(d_old,list_prod(diff_messages[i])))
+                delta = max(delta, thisDelta(d_old, list_prod(diff_messages[i])))
                 team_perf_messages[i][2] = (
                     list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                     + diff_messages[i][1])
@@ -335,10 +339,67 @@ class Game(object):
         return res
 
     @property
+    def likelihoodAnalitico(self):
+
+        def vt(t):
+            z = Gaussian(0, 1)
+            return (z.pdf(t) / z.cdf(t))
+
+        def wt(t, v):
+            w = v * (v + t)
+            return w
+
+        delta = self.t[0].mus - self.t[1].mus
+        thetaCuadrado = (self.t[0].sigmas*self.t[0].sigmas
+                         + self.t[1].sigmas*self.t[1].sigmas)
+        t = delta/math.sqrt(thetaCuadrado)
+        V = vt(t)
+        W = wt(t, v=V)
+        deltaHat = delta + math.sqrt(thetaCuadrado)*V
+        thetaHatCuadrado = thetaCuadrado*(1-W)
+        deltaDiv = (math.sqrt(thetaCuadrado)/(V+t))+delta
+        thetaDiv = math.sqrt((1/W-1)*thetaCuadrado)
+
+        def winner(mui, sigmai, betai, delta=delta,
+                   thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
+                   thetaDiv=thetaDiv, deltaHat=deltaHat,
+                   thetaHatCuadrado=thetaHatCuadrado):
+            mu = deltaDiv + mui - delta
+            sigmaAnalitico = math.sqrt(thetaDiv*thetaDiv + thetaCuadrado
+                                       - sigmai*sigmai)
+            return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+
+        def looser(mui, sigmai, betai, delta=delta,
+                   thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
+                   thetaDiv=thetaDiv, deltaHat=deltaHat,
+                   thetaHatCuadrado=thetaHatCuadrado):
+            mu = delta + mui - deltaDiv
+            sigmaAnalitico = math.sqrt(thetaDiv*thetaDiv + thetaCuadrado
+                                       - sigmai*sigmai)
+            return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+
+        players = [[], []]
+        for j in range(len(self.t[0])):
+            gaus = 0
+            gaus = winner(self.t[0][j].mu, self.t[0][j].sigma,
+                          self.t[0][j].beta)
+            players[0].append(gaus)
+        for j in range(len(self.t[1])):
+            gaus = 0
+            gaus = looser(self.t[1][j].mu, self.t[1][j].sigma,
+                          self.t[1][j].beta)
+            players[1].append(gaus)
+        return players
+
+    @property
     def m_fp_s(self):
-        t_ft = self.m_t_ft
-        return [[t_ft[e] - self.t[e].exclude(i) for i in range(len(self.t[e]))]
-                for e in range(len(self.t))]
+
+        if len(self.teams) == 2:
+            return self.likelihoodAnalitico
+        else:
+            t_ft = self.m_t_ft
+            return [[t_ft[e] - self.t[e].exclude(i) for i in range(len(self.t[e]))]
+                    for e in range(len(self.t))]
 
     def compute_likelihood(self):
         likelihood, _ = self.sortTeams(self.m_fp_s, self.o)
@@ -459,6 +520,7 @@ class Time(object):
         res = {}
         for i in self.players:
             res[i] = self.posterior(i)
+        print(res)
         return res
 
     def within_prior(self, i, g):
@@ -468,7 +530,7 @@ class Time(object):
 
     def within_priors(self, g):
         teams = self.games_composition[g]
-        return [[self.within_prior(i,g) for i in te] for te in teams]
+        return [[self.within_prior(i, g) for i in te] for te in teams]
 
     def teams(self, g):
         return len(self.games_composition[g])
@@ -510,9 +572,7 @@ class Time(object):
         iterations = 0
         while delta > self.epsilon and iterations < 10:
             delta = self.iteration()
-            #print(delta)
             iterations += 1
-        #print(iterations)
         self.match_last_evidence = dict(zip(self.match_id, self.last_evidence))
         return iterations
 
@@ -534,10 +594,10 @@ class Time(object):
 
 class History(object):
     def __init__(self, games_composition, results, batch_numbers=None,
-                 prior_dict = {}, default=None , match_id = None,
+                 prior_dict={}, default=None, match_id=None,
                  epsilon=10**-3, env=None):
 
-        self.env = global_env() if env is None  else env
+        self.env = global_env() if env is None else env
         self.games_composition = list(map(lambda xs: xs
                                       if isinstance(xs[0], list)
                                       else [[x] for x in xs],
@@ -545,8 +605,8 @@ class History(object):
         self.results = results
         self.batch_numbers = batch_numbers
         self.match_id = list(range(len(self))) if match_id is None else match_id
-        if not self.batch_numbers is None:
-            (self.games_composition,self.results, self.batch_numbers,
+        if self.batch_numbers is not None:
+            (self.games_composition, self.results, self.batch_numbers,
              self.match_id) = map(lambda x: list(x),
                                   list(zip(*sorted(zip(self.games_composition,
                                        self.results, self.batch_numbers,
@@ -572,7 +632,7 @@ class History(object):
         # self.through_time()
         # self.through_time(online=False); self.convergence()
 
-    def end_batch(self,i):
+    def end_batch(self, i):
         t = None if self.batch_numbers is None else self.batch_numbers[i]
         j = i + 1
         while ((j < len(self)) and (t is not None) and
@@ -617,7 +677,7 @@ class History(object):
     def forward_propagation(self):
         self.forward_priors = self.initial_prior.copy()
         delta = 0
-        for t in range(1,len(self.times)):
+        for t in range(1, len(self.times)):
             self.forward_priors.update(self.times[t-1].forward_priors_out)
             old = self.times[t].posteriors
             self.times[t].forward_info(self.forward_priors)
@@ -634,8 +694,6 @@ class History(object):
 
     def through_time(self, online=True):
         i = 0
-        # ipdb.set_trace()
-        print("Start first pass")
         start = clock.time()
         while i < len(self):
             t = 1 if self.batch_numbers is None else self.batch_numbers[i]
@@ -659,7 +717,7 @@ class History(object):
                 self.learning_curves_online[p].append(time.posteriors[p])
             i = j
         end = clock.time()
-        print("End first pass:", round(end-start, 3))
+        # print("End first pass:", round(end-start, 3))
 
     def convergence(self):
         delta = math.inf
@@ -698,7 +756,7 @@ class History(object):
 
     def log10_online_evidence(self):
         return sum([math.log10(e) for t in self.times for e in t.evidence])
-        
+
     def log10_evidence_trueskill(self):
         return sum([math.log10(e) for t in self.times_trueskill for e in t.evidence])
 
@@ -737,14 +795,16 @@ def flat(xs):
         res = sum(xs, [])
     return res
 
+
 def list_prod(xs):
     res = xs[0]
-    for i in range(1,len(xs)):
+    for i in range(1, len(xs)):
         res *= xs[i]
-    return res 
+    return res
+
 
 def list_sum(xs):
     res = xs[0]
-    for i in range(1,len(xs)):
+    for i in range(1, len(xs)):
         res += xs[i]
-    return res 
+    return res
