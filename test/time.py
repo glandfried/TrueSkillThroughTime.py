@@ -14,14 +14,23 @@ for _ in range(100):
     tsTime += time.time() - start
 
 reload(ttt)
-tttTimes = 0
-for _ in range(100):    
+tttTimes = [0,0]
+for _ in range(100):   
+    composition = [ttt.Team([ttt.Rating()]),ttt.Team([ttt.Rating(),ttt.Rating()])] 
     start = time.time()
-    composition = [ttt.Team([ttt.Rating()]),ttt.Team([ttt.Rating()])]
     game = ttt.Game(composition,[0,1])
+    game.posterior
     end = time.time() - start
-    tttTimes += end
+    tttTimes[0] += time.time() - start
 
+ttt.History()
+
+
+tsTime/tttTimes[0]
+
+    tttTimes[1] += game.time_likelihood
+
+tttTimes[1]/tttTimes[0]
 
 import math
 a=list(range(100))
