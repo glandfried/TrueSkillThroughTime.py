@@ -227,7 +227,8 @@ class Team(object):
 class Game(object):
 
     def __init__(self, teams=None, results=None, names=None):
-
+        
+        start_init_game = clock.time()
         if isinstance(teams[0], Team):
             self.teams = list(teams)
         else:
@@ -242,14 +243,21 @@ class Game(object):
         self.o = list(index_sorted)
         self.t = teams_sorted
         self.d = [self.t[e].performance - self.t[e+1].performance for e in range(len(self.t)-1)]
+        self.time_init = clock.time() - start_init_game
 
         #self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
         #self.prior = [[r for r in te.ratings] for te in self.teams]
         #self.inverse_prior = [[Gaussian() for r in te.ratings] for te in self.teams]
 
+        start=clock.time()
         self.likelihood = self.compute_likelihood()  # 0.0025
+        self.time_likelihood = clock.time() - start
+        start=clock.time()
         self.posterior = self.compute_posterior()  # 0.00025
+        self.time_posterior = clock.time() - start
+        start=clock.time()
         self.evidence = self.compute_evidence()  # 0.00006
+        self.time_evidence = clock.time() - start
 
     def sortTeams(self, teams, results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
@@ -321,7 +329,6 @@ class Game(object):
 
             diff_messages[0][1] = diff_messages[i][0].trunc/diff_messages[i][0]
 
-        # ipdb.set_trace()
         team_perf_messages[0][2] = list_prod(team_perf_messages[1])/team_perf_messages[1][1]+diff_messages[0][1]
 
         i = len(self.t)-2
@@ -360,7 +367,6 @@ class Game(object):
 
     @property
     def update(self):
-        # ipdb.set_trace()
         self.last_posterior = self.compute_posterior()
         self.last_likelihood = self.compute_likelihood()
         self.last_evidence = self.compute_evidence()
@@ -388,6 +394,8 @@ class Time(object):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
+        self.time_analysis = {}
+        start_init = clock.time()
         self.games_composition = games_composition
         self.results = results
         self.batch_number = batch_number
@@ -412,6 +420,13 @@ class Time(object):
         self.game_time = 0
         self.evidence = []
         self.last_evidence = []
+        self.time_analysis['init'] = clock.time() - start_init
+        self.time_analysis['likelihood'] = 0
+        self.time_analysis['posterior'] = 0
+        self.time_analysis['evidence'] = 0
+        self.time_analysis['game_init'] = 0
+        self.time_analysis['create_game'] = 0
+        self.time_analysis['iterations'] = 0
         self.convergence()
         self.match_evidence = dict(zip(self.match_id, self.evidence))
         self.match_last_evidence = None
@@ -478,14 +493,22 @@ class Time(object):
 
     def iteration(self):
         max_delta = 0
-        for g in range(len(self)):
+        for g in range(len(self)):    
             within_priors = self.within_priors(g)
-            game_start = clock.time()
             game = Game(within_priors, self.results[g],
                         self.games_composition[g])
-            game_end = clock.time()
-            self.game_time += game_end - game_start
+            
+            self.time_analysis['likelihood'] += game.time_likelihood
+            self.time_analysis['posterior'] += game.time_posterior
+            self.time_analysis['evidence'] += game.time_evidence
+            self.time_analysis['game_init'] += game.time_init
+            self.time_analysis['create_game'] += game.time_init + game.time_likelihood + game.time_posterior + game.time_evidence
+            self.time_analysis['iterations'] += 1
+
             for te in range(self.teams(g)):
+                """
+                TODO: revisar como no entrar de m\'as 
+                """
                 names = self.names(g)[te]
                 for i in range(len(names)):
                     n = names[i]
@@ -501,7 +524,6 @@ class Time(object):
                 self.evidence.append(game.evidence)
                 self.last_evidence.append(game.evidence)
             else:
-                # ipdb.set_trace()
                 self.last_evidence[g] = game.evidence
         return max_delta
 
@@ -536,7 +558,8 @@ class History(object):
     def __init__(self, games_composition, results, batch_numbers=None,
                  prior_dict = {}, default=None , match_id = None,
                  epsilon=10**-3, env=None):
-
+        self.time_analysis = {}
+        start_init_history = clock.time() 
         self.env = global_env() if env is None  else env
         self.games_composition = list(map(lambda xs: xs
                                       if isinstance(xs[0], list)
@@ -568,6 +591,12 @@ class History(object):
         self.learning_curves_trueskill = {}
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
+        self.time_analysis['init'] = clock.time() - start_init_history
+        self.time_analysis['likelihood'] = 0
+        self.time_analysis['posterior'] = 0
+        self.time_analysis['evidence'] = 0
+        self.time_analysis['game_init'] = 0
+        self.time_analysis['total_games'] = 0
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
@@ -581,14 +610,18 @@ class History(object):
         return j
 
     def trueSkill(self):
+        self.time_analysis['create_time'] = 0
         i = 0
         while i < len(self):
             t = None if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
+            start_add_time = clock.time()
             time = Time(games_composition=self.games_composition[i:j],
                         results=self.results[i:j],
                         forward_priors=self.forward_priors_trueskill,
                         batch_number=t, epsilon=self.epsilon)
+            self.time_analysis['create_time']  = clock.time() - start_add_time
+            
             self.forward_priors_trueskill.update(time.forward_priors_out)
             self.times_trueskill.append(time)
             i = j
@@ -634,7 +667,6 @@ class History(object):
 
     def through_time(self, online=True):
         i = 0
-        # ipdb.set_trace()
         print("Start first pass")
         start = clock.time()
         while i < len(self):

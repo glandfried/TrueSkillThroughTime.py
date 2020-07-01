@@ -23,8 +23,9 @@ for _ in range(100):
     end = time.time() - start
     tttTimes[0] += time.time() - start
 
-ttt.History()
-
+tttEnv = ttt.TrueSkill()
+history = tttEnv.History([[[1],[2,3]]],[[0,1]])
+history.through_time()
 
 tsTime/tttTimes[0]
 
