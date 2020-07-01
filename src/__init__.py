@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-
+#import ipdb
 #print(
 """
    Trueskill
@@ -349,51 +349,42 @@ class Game(object):
             w = v * (v + t)
             return w
 
-        delta = self.t[0].mus - self.t[1].mus
-        thetaCuadrado = (self.t[0].sigmas*self.t[0].sigmas
-                         + self.t[1].sigmas*self.t[1].sigmas)
-        t = delta/math.sqrt(thetaCuadrado)
+        delta = self.d[0].mu
+        thetaCuadrado = self.d[0].sigma*self.d[0].sigma
+        theta = self.d[0].sigma
+        t = delta/theta
         V = vt(t)
         W = wt(t, v=V)
-        deltaHat = delta + math.sqrt(thetaCuadrado)*V
-        thetaHatCuadrado = thetaCuadrado*(1-W)
-        deltaDiv = (math.sqrt(thetaCuadrado)/(V+t))+delta
-        thetaDiv = math.sqrt((1/W-1)*thetaCuadrado)
-
+        deltaDiv = (theta/(V+t))+delta
+        thetaDivCuad = (1/W-1)*thetaCuadrado
         def winner(mui, sigmai, betai, delta=delta,
                    thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
-                   thetaDiv=thetaDiv, deltaHat=deltaHat,
-                   thetaHatCuadrado=thetaHatCuadrado):
+                   thetaDivCuad=thetaDivCuad):
             mu = deltaDiv + mui - delta
-            sigmaAnalitico = math.sqrt(thetaDiv*thetaDiv + thetaCuadrado
+            sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
                                        - sigmai*sigmai)
             return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
 
         def looser(mui, sigmai, betai, delta=delta,
                    thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
-                   thetaDiv=thetaDiv, deltaHat=deltaHat,
-                   thetaHatCuadrado=thetaHatCuadrado):
+                   thetaDivCuad=thetaDivCuad):
             mu = delta + mui - deltaDiv
-            sigmaAnalitico = math.sqrt(thetaDiv*thetaDiv + thetaCuadrado
+            sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
                                        - sigmai*sigmai)
             return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
 
-        players = [[], []]
+        players = [[None]*len(self.t[0]), [None]*len(self.t[1])]
         for j in range(len(self.t[0])):
-            gaus = 0
-            gaus = winner(self.t[0][j].mu, self.t[0][j].sigma,
-                          self.t[0][j].beta)
-            players[0].append(gaus)
+            players[0][j] = winner(self.t[0][j].mu, self.t[0][j].sigma,
+                                   self.t[0][j].beta)
         for j in range(len(self.t[1])):
-            gaus = 0
-            gaus = looser(self.t[1][j].mu, self.t[1][j].sigma,
-                          self.t[1][j].beta)
-            players[1].append(gaus)
+            players[1][j] = looser(self.t[1][j].mu, self.t[1][j].sigma,
+                                   self.t[1][j].beta)
         return players
+
 
     @property
     def m_fp_s(self):
-
         if len(self.teams) == 2:
             return self.likelihoodAnalitico
         else:
@@ -520,7 +511,6 @@ class Time(object):
         res = {}
         for i in self.players:
             res[i] = self.posterior(i)
-        print(res)
         return res
 
     def within_prior(self, i, g):
@@ -722,6 +712,7 @@ class History(object):
     def convergence(self):
         delta = math.inf
         for i in range(10):
+            #ipdb.set_trace()
             start = clock.time()
             delta = min(self.backward_propagation(), delta)
             delta = min(self.forward_propagation(), delta)
