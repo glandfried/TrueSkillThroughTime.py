@@ -45,7 +45,8 @@ import time as clock
 #import ipdb
 
 BETA = 25/6
-
+sqrt2 = math.sqrt(2)
+sqrt2pi = math.sqrt(2 * math.pi)
  # global_env es solo para synergia
 __all__ = [
     'TrueSkill', 'Rating', 'Team', 'Game', 'History',
@@ -340,15 +341,15 @@ class Game(object):
 
     @property
     def likelihoodAnalitico(self):
-
         def vt(t):
-            z = Gaussian(0, 1)
-            return (z.pdf(t) / z.cdf(t))
+            global sqrt2pi, sqrt2
+            pdf = (1 / sqrt2pi) * math.exp(- (t*t / 2))
+            cdf = 0.5*(1+math.erf(t/sqrt2))
+            return (pdf/cdf)
 
         def wt(t, v):
             w = v * (v + t)
             return w
-
         delta = self.d[0].mu
         thetaCuadrado = self.d[0].sigma*self.d[0].sigma
         theta = self.d[0].sigma
@@ -357,6 +358,7 @@ class Game(object):
         W = wt(t, v=V)
         deltaDiv = (theta/(V+t))+delta
         thetaDivCuad = (1/W-1)*thetaCuadrado
+
         def winner(mui, sigmai, betai, delta=delta,
                    thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
                    thetaDivCuad=thetaDivCuad):
@@ -381,7 +383,6 @@ class Game(object):
             players[1][j] = looser(self.t[1][j].mu, self.t[1][j].sigma,
                                    self.t[1][j].beta)
         return players
-
 
     @property
     def m_fp_s(self):
@@ -622,6 +623,21 @@ class History(object):
         # self.through_time()
         # self.through_time(online=False); self.convergence()
 
+    def baches(self, batch_numbers):  # esta sin testear todavia
+        if type(batch_numbers[0]) == int:
+            self.batch_numbers = batch_numbers
+        else:
+            try:
+                baches = []
+                bache = 1
+                for i in range(len(batch_numbers)):
+                    if ((batch_numbers[i] != batch_numbers[i+1])
+                          & (i < len(batch_numbers))):
+                        bache += 1
+                    baches.append(bache)
+            except ValueError:
+                print("Wrong format of batch_number")
+
     def end_batch(self, i):
         t = None if self.batch_numbers is None else self.batch_numbers[i]
         j = i + 1
@@ -711,15 +727,15 @@ class History(object):
 
     def convergence(self):
         delta = math.inf
-        for i in range(10):
-            #ipdb.set_trace()
+        loop = 10
+        i = 0
+        while (i <= loop) and (delta > self.epsilon):
             start = clock.time()
             delta = min(self.backward_propagation(), delta)
             delta = min(self.forward_propagation(), delta)
             end = clock.time()
-            print("d: ", round(delta, 6), ", t: ", round(end-start, 4))  # , end='\r')
-            if delta < self.epsilon:
-                break
+            #print("d: ", round(delta, 6), ", t: ", round(end-start, 4))  # , end='\r')
+            i += 1
         self.update_learning_curves()
 
     def players(self):
