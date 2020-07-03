@@ -158,14 +158,14 @@ class Rating(Gaussian):
     # Pongo un tope de maxima incertidumbre, por eso el min
 
     def forget(self, t=1):
-        new_sigma = math.sqrt(self.sigma**2 + (self.noise*t)**2)
+        new_sigma = math.sqrt(self.sigma*self.sigma + (self.noise*t)*(self.noise*t))
         return Rating(mu=self.mu, sigma=min(new_sigma, self.env.sigma),
                       beta=self.beta, noise=self.noise,
                       env=self.env)
 
     @property
     def performance(self):
-        new_sigma = math.sqrt(self.sigma**2 + self.beta**2)
+        new_sigma = math.sqrt(self.sigma*self.sigma + self.beta*self.beta)
         return Gaussian(self.mu, new_sigma)
 
     # no se usa...
@@ -204,7 +204,7 @@ class Team(object):
 
     @property
     def sigmas(self):
-        return math.sqrt(sum(list(map(lambda s: s.sigma**2 + s.beta**2,
+        return math.sqrt(sum(list(map(lambda s: s.sigma*s.sigma + s.beta*s.beta,
                          self.ratings))))
 
     def __len__(self):
@@ -215,7 +215,7 @@ class Team(object):
 
     def exclude(self, key):
         mu = self.mu - self[key].mu
-        sigma = math.sqrt(self.sigma**2 - self[key].sigma**2)
+        sigma = math.sqrt(self.sigma*self.sigma - self[key].sigma*self[key].sigma)
         return Gaussian(mu=mu, sigma=sigma)
 
     def __repr__(self):
@@ -365,7 +365,8 @@ class Game(object):
             mu = deltaDiv + mui - delta
             sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
                                        - sigmai*sigmai)
-            return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+            #return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+            return Gaussian(mu=mu, sigma=sigmaAnalitico)
 
         def looser(mui, sigmai, betai, delta=delta,
                    thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
@@ -373,7 +374,8 @@ class Game(object):
             mu = delta + mui - deltaDiv
             sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
                                        - sigmai*sigmai)
-            return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+            #return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
+            return Gaussian(mu=mu, sigma=sigmaAnalitico)
 
         players = [[None]*len(self.t[0]), [None]*len(self.t[1])]
         for j in range(len(self.t[0])):
@@ -382,6 +384,7 @@ class Game(object):
         for j in range(len(self.t[1])):
             players[1][j] = looser(self.t[1][j].mu, self.t[1][j].sigma,
                                    self.t[1][j].beta)
+        
         return players
 
     @property
@@ -395,6 +398,7 @@ class Game(object):
 
     def compute_likelihood(self):
         likelihood, _ = self.sortTeams(self.m_fp_s, self.o)
+
         return likelihood
 
     def compute_posterior(self):
@@ -594,7 +598,7 @@ class History(object):
                                       else [[x] for x in xs],
                                       games_composition))
         self.results = results
-        self.batch_numbers = batch_numbers
+        self.batch_numbers = self.baches(batch_numbers)
         self.match_id = list(range(len(self))) if match_id is None else match_id
         if self.batch_numbers is not None:
             (self.games_composition, self.results, self.batch_numbers,
@@ -625,16 +629,17 @@ class History(object):
 
     def baches(self, batch_numbers):  # esta sin testear todavia
         if type(batch_numbers[0]) == int:
-            self.batch_numbers = batch_numbers
+            return batch_numbers
         else:
             try:
-                baches = []
-                bache = 1
-                for i in range(len(batch_numbers)):
-                    if ((batch_numbers[i] != batch_numbers[i+1])
-                          & (i < len(batch_numbers))):
+                baches = [None]*len(batch_numbers[0])
+                bache = 0
+                for i in range(len(baches)-1):
+                    if (batch_numbers[0][i] != batch_numbers[0][i+1]):
                         bache += 1
-                    baches.append(bache)
+                    baches[i] = bache
+                baches[i+1] = bache
+                return baches
             except ValueError:
                 print("Wrong format of batch_number")
 
