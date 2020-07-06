@@ -551,9 +551,11 @@ class Time(object):
         max_delta = 0
         for g in range(len(self)):
             within_priors = self.within_priors(g)
+            game_start = clock.time()
             game = Game(within_priors, self.results[g],
                         self.games_composition[g])
-
+            game_end = clock.time()
+            self.game_time += game_end - game_start
             self.time_analysis['likelihood'] += game.time_likelihood
             self.time_analysis['posterior'] += game.time_posterior
             self.time_analysis['evidence'] += game.time_evidence
