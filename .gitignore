@@ -1,6 +1,7 @@
 *
 !*/
-*download/
+test/versions/
+!test/versions/makefile
 
 ########################
 # Archivos que NO ignora
