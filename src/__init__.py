@@ -214,8 +214,8 @@ class Team(object):
         return self.ratings[key]
 
     def exclude(self, key):
-        mu = self.mu - self[key].mu
-        sigma = math.sqrt(self.sigma*self.sigma - self[key].sigma*self[key].sigma)
+        mu = self.mus - self[key].mu
+        sigma = math.sqrt(self.sigmas*self.sigmas - self[key].sigma*self[key].sigma)
         return Gaussian(mu=mu, sigma=sigma)
 
     def __repr__(self):
