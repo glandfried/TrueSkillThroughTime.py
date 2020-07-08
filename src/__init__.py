@@ -384,7 +384,7 @@ class Game(object):
         for j in range(len(self.t[1])):
             players[1][j] = looser(self.t[1][j].mu, self.t[1][j].sigma,
                                    self.t[1][j].beta)
-        
+
         return players
 
     @property
@@ -632,10 +632,10 @@ class History(object):
             return batch_numbers
         else:
             try:
-                baches = [None]*len(batch_numbers[0])
+                baches = [None]*len(batch_numbers)
                 bache = 0
                 for i in range(len(baches)-1):
-                    if (batch_numbers[0][i] != batch_numbers[0][i+1]):
+                    if (batch_numbers[i] != batch_numbers[i+1]):
                         bache += 1
                     baches[i] = bache
                 baches[i+1] = bache
