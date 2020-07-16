@@ -604,6 +604,8 @@ class History(object):
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
+        # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
+        self.batchNumb = self.batchNumber(self.batch_numbers)
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
@@ -611,15 +613,23 @@ class History(object):
 # Falta agregarle mas datos, nuermo de jugadores distintos, numero de equipos?,etc
     def status(self):
         print("El numero de partidas ingresadas fueron:", len(self.games_composition))
-        print("El numero de baches ingresados fueron:", len(self.batch_numbers))
+        print("El numero de baches ingresados fueron:", self.batchNumb)
         print("El tipo de baches ingresados son:", self.batch_numbers[0])
         print("La cantidad de jugadores:", len(self.players))
         print("La primer partida son de ", len(self.games_composition[0]), "equipos")
         self.teamsNumber(self.numbOfFirstTeam)
 
+    def batchNumber(self, batch_numbers):
+        count = 0
+        i = 0
+        while i < len(self):
+            j = self.end_batch(i)
+            i = j
+            count += 1
+        return count
 
     def teamsNumber(self, comp):
-        print( "La primer partida tiene una distribucion: ", end=" ")
+        print("La primer partida tiene una distribucion: ", end=" ")
         for i in range(len(comp)-1):
             print(len(self.games_composition[0][i]), '|', end=" ")
         print(len(self.games_composition[0][i+1]), end=" ")
@@ -661,7 +671,8 @@ class History(object):
             time = Time(games_composition=self.games_composition[i:j],
                         results=self.results[i:j],
                         forward_priors=self.forward_priors_trueskill,
-                        batch_number=t, epsilon=self.epsilon)
+                        batch_number=t, epsilon=self.epsilon,
+                        iterations=self.iterations)
             self.forward_priors_trueskill.update(time.forward_priors_out)
             self.times_trueskill.append(time)
             i = j
@@ -715,7 +726,8 @@ class History(object):
                         results=self.results[i:j],
                         forward_priors=self.forward_priors,
                         batch_number=t, last_batch=self.last_batch,
-                        match_id=self.match_id[i:j], epsilon=self.epsilon)
+                        match_id=self.match_id[i:j], epsilon=self.epsilon,
+                        iterations=self.iterations)
 
             self.match_time.update({m: time for m in self.match_id[i:j]})
             if self.batch_numbers is not None:
