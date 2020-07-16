@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+import dateutil.parser
 #import ipdb
 #print(
 """
@@ -101,12 +102,12 @@ class TrueSkill(object):
         return Game(teams=teams, results=results, names=names)
 
     def history(self, games_composition, results, batch_numbers=None,
-                prior_dict={}, epsilon=None):
+                prior_dict={}, epsilon=None, iterations=10, batchType='year'):
         if epsilon is None:
             epsilon = self.epsilon
         return History(games_composition=games_composition, results=results,
                        batch_numbers=batch_numbers, prior_dict=prior_dict,
-                       default=self.Rating(), epsilon=epsilon)
+                       default=self.Rating(), epsilon=epsilon, iterations=10, batchType=batchType)
 
     @property
     def Rating(self):
@@ -371,7 +372,7 @@ class Game(object):
     def m_fp_s(self):
         if self.numTeam > 2:
             t_ft = self.m_t_ft
-            return [[t_ft[e] - self.teamAv[e][i]  for i in range(len(self.t[e]))]
+            return [[t_ft[e] - self.teamAv[e][i] for i in range(len(self.t[e]))]
                     for e in range(len(self.t))]
         else:
             return self.likelihoodAnalitico
@@ -420,7 +421,7 @@ class Time(object):
     def __init__(self, games_composition, results,
                  forward_priors=defaultdict(lambda: Rating()),
                  batch_number=None, last_batch=defaultdict(lambda: None),
-                 match_id=None, epsilon=1e-2):
+                 match_id=None, epsilon=1e-2, iterations=10):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
@@ -445,7 +446,7 @@ class Time(object):
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))
         self.epsilon = epsilon
-        self.game_time = 0
+        self.iterations = iterations
         self.evidence = []
         self.last_evidence = []
         self.convergence()
@@ -516,11 +517,8 @@ class Time(object):
         max_delta = 0
         for g in range(len(self)):
             within_priors = self.within_priors(g)
-            game_start = clock.time()
             game = Game(within_priors, self.results[g],
                         self.games_composition[g])
-            game_end = clock.time()
-            self.game_time += game_end - game_start
             for te in range(self.teams(g)):
                 names = self.names(g)[te]
                 for i in range(len(names)):
@@ -544,7 +542,7 @@ class Time(object):
     def convergence(self):
         delta = math.inf
         iterations = 0
-        while delta > self.epsilon and iterations < 10:
+        while delta > self.epsilon and iterations < self.iterations:
             delta = self.iteration()
             iterations += 1
         self.match_last_evidence = dict(zip(self.match_id, self.last_evidence))
@@ -569,8 +567,9 @@ class Time(object):
 class History(object):
     def __init__(self, games_composition, results, batch_numbers=None,
                  prior_dict={}, default=None, match_id=None,
-                 epsilon=10**-3, env=None):
-
+                 epsilon=10**-3, iterations=10, batchType='year', env=None):
+        self.batchType = batchType.lower()
+        print(self.batchType)
         self.env = global_env() if env is None else env
         self.games_composition = list(map(lambda xs: xs
                                       if isinstance(xs[0], list)
@@ -588,6 +587,7 @@ class History(object):
                                        self.match_id), key=lambda x: x[2]))))
         self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
+        self.iterations = iterations
         self.initial_prior = defaultdict(lambda: self.default)
         self.initial_prior.update(prior_dict)
         self.forward_priors = self.initial_prior.copy()
@@ -603,9 +603,15 @@ class History(object):
         self.learning_curves_trueskill = {}
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
+
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
+
+# Falta agregarle mas datos, nuermo de jugadores distintos, numero de equipos?,etc
+    def status(self):
+        print("El numero de partidas ingresadas fueron:", len(self.games_composition))
+        print("El numero de baches ingresados fueron:", len(self.batch_numbers))
 
     def baches(self, batch_numbers):  # esta sin testear todavia
         if type(batch_numbers[0]) == int:
@@ -613,13 +619,16 @@ class History(object):
         else:
             try:
                 baches = [None]*len(batch_numbers)
-                bache = 0
-                for i in range(len(baches)-1):
-                    if (batch_numbers[i] != batch_numbers[i+1]):
-                        bache += 1
-                    baches[i] = bache
-                baches[i+1] = bache
-                return baches
+                if (self.batchType == 'year') or (self.batchType == 'years'):
+                    for i in range(len(baches)-1):
+                        baches[i] = dateutil.parser.parse(batch_numbers[i]).year
+                    baches[i+1] = dateutil.parser.parse(batch_numbers[i+1]).year
+                    return baches
+                elif (self.batchType == 'month') or (self.batchType == 'months'):
+                    for i in range(len(baches)-1):
+                        baches[i] = [ dateutil.parser.parse(batch_numbers[i]).year,dateutil.parser.parse(batch_numbers[i]).month]
+                    baches[i+1] = [ dateutil.parser.parse(batch_numbers[i+1]).year,dateutil.parser.parse(batch_numbers[i+1]).month]
+                    return baches
             except ValueError:
                 print("Wrong format of batch_number")
 
