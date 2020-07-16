@@ -569,8 +569,8 @@ class History(object):
                  prior_dict={}, default=None, match_id=None,
                  epsilon=10**-3, iterations=10, batchType='year', env=None):
         self.batchType = batchType.lower()
-        print(self.batchType)
         self.env = global_env() if env is None else env
+        self.numbOfFirstTeam = games_composition[0]
         self.games_composition = list(map(lambda xs: xs
                                       if isinstance(xs[0], list)
                                       else [[x] for x in xs],
@@ -603,7 +603,7 @@ class History(object):
         self.learning_curves_trueskill = {}
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
-
+        self.players = set(flat(flat(games_composition)))
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
@@ -612,6 +612,17 @@ class History(object):
     def status(self):
         print("El numero de partidas ingresadas fueron:", len(self.games_composition))
         print("El numero de baches ingresados fueron:", len(self.batch_numbers))
+        print("El tipo de baches ingresados son:", self.batch_numbers[0])
+        print("La cantidad de jugadores:", len(self.players))
+        print("La primer partida son de ", len(self.games_composition[0]), "equipos")
+        self.teamsNumber(self.numbOfFirstTeam)
+
+
+    def teamsNumber(self, comp):
+        print( "La primer partida tiene una distribucion: ", end=" ")
+        for i in range(len(comp)-1):
+            print(len(self.games_composition[0][i]), '|', end=" ")
+        print(len(self.games_composition[0][i+1]), end=" ")
 
     def baches(self, batch_numbers):  # esta sin testear todavia
         if type(batch_numbers[0]) == int:
@@ -626,8 +637,10 @@ class History(object):
                     return baches
                 elif (self.batchType == 'month') or (self.batchType == 'months'):
                     for i in range(len(baches)-1):
-                        baches[i] = [ dateutil.parser.parse(batch_numbers[i]).year,dateutil.parser.parse(batch_numbers[i]).month]
-                    baches[i+1] = [ dateutil.parser.parse(batch_numbers[i+1]).year,dateutil.parser.parse(batch_numbers[i+1]).month]
+                        baches[i] = [dateutil.parser.parse(batch_numbers[i]).year,
+                                     dateutil.parser.parse(batch_numbers[i]).month]
+                    baches[i+1] = [dateutil.parser.parse(batch_numbers[i+1]).year,
+                                   dateutil.parser.parse(batch_numbers[i+1]).month]
                     return baches
             except ValueError:
                 print("Wrong format of batch_number")
