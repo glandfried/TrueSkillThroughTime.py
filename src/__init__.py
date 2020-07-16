@@ -193,49 +193,11 @@ class Rating(Gaussian):
         return '%s(mu=%.3f, sigma=%.3f, beta=%.3f, noise=%.3f)' % args
 
 
-class Team(object):
-    def __init__(self, ratings=None):
-        self.ratings = ratings
-        self.performance = Gaussian(self.mus, self.sigmas)
-
-    @property
-    def mus(self):
-        return sum(map(lambda s: s.mu, self.ratings))
-
-    @property
-    def sigmas(self):
-        return math.sqrt(sum(list(map(lambda s: s.sigma*s.sigma + s.beta*s.beta,
-                         self.ratings))))
-
-    def __len__(self):
-        return len(self.ratings)
-
-    def __getitem__(self, key):
-        return self.ratings[key]
-
-    def exclude(self, key):
-        mu = self.mus - self[key].mu
-        sigma = math.sqrt(self.sigmas*self.sigmas - self[key].sigma*self[key].sigma)
-        return Gaussian(mu=mu, sigma=sigma)
-
-    def __repr__(self):
-        res = 'Team('
-        res += '{}'.format(self.ratings[0])
-        for r in range(1, len(self.ratings)):
-            res += ', '
-            res += '{}'.format(self.ratings[r])
-        res += ')'
-        return res
-
 
 class Game(object):
 
     def __init__(self, teams=None, results=None, names=None):
-
-        if isinstance(teams[0], Team):
-            self.teams = list(teams)
-        else:
-            self.teams = [Team(t) for t in teams]
+        self.teams = teams
         self.results = list(results)
         if names is not None:
             self.names = [list(n) if isinstance(n, Iterable) else [n]
@@ -245,7 +207,25 @@ class Game(object):
         teams_sorted, index_sorted, _ = list(zip(*teams_index_sorted))
         self.o = list(index_sorted)
         self.t = teams_sorted
-        self.d = [self.t[e].performance - self.t[e+1].performance
+        self.numTeam = len(self.teams)
+        self.teamAv = []
+        self.teamPerformance = [None]*self.numTeam
+        for i in range(len(self.t)):
+            self.teamAv.append([])
+            mus = 0
+            sigmas = 0
+            betas = 0
+            for j in range(len(self.t[i])):
+                mus += self.t[i][j].mu
+                sigmas += self.t[i][j].sigma**2
+                betas += self.t[i][j].beta**2
+                self.teamAv[i].append(None)
+            self.teamPerformance[i] = Rating(mus, math.sqrt(sigmas+betas))
+        for i in range(len(self.t)):
+            for j in range(len(self.t[i])):
+                self.teamAv[i][j] = Rating(self.teamPerformance[i].mu-self.t[i][j].mu, math.sqrt(self.teamPerformance[i].sigma**2-self.t[i][j].sigma**2))
+
+        self.d = [self.teamPerformance[e] - self.teamPerformance[e+1]
                   for e in range(len(self.t)-1)]
         # self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
         # self.prior = [[r for r in te.ratings] for te in self.teams]
@@ -274,7 +254,7 @@ class Game(object):
             mu_new, sigma_new = new
             return max(abs(mu_old-mu_new), abs(sigma_old-sigma_new))
 
-        team_perf_messages = [[self.t[e].performance, Gaussian(), Gaussian()]
+        team_perf_messages = [[self.teamPerformance[e], Gaussian(), Gaussian()]
                               for e in range(len(self.t))]
 
         diff_messages = [[Gaussian(), Gaussian()]
@@ -389,16 +369,15 @@ class Game(object):
 
     @property
     def m_fp_s(self):
-        if len(self.teams) == 2:
-            return self.likelihoodAnalitico
-        else:
+        if self.numTeam > 2:
             t_ft = self.m_t_ft
-            return [[t_ft[e] - self.t[e].exclude(i) for i in range(len(self.t[e]))]
+            return [[t_ft[e] - self.teamAv[e][i]  for i in range(len(self.t[e]))]
                     for e in range(len(self.t))]
+        else:
+            return self.likelihoodAnalitico
 
     def compute_likelihood(self):
         likelihood, _ = self.sortTeams(self.m_fp_s, self.o)
-
         return likelihood
 
     def compute_posterior(self):
@@ -598,7 +577,8 @@ class History(object):
                                       else [[x] for x in xs],
                                       games_composition))
         self.results = results
-        self.batch_numbers = self.baches(batch_numbers)
+        self.batch_numbers = (batch_numbers if batch_numbers is None
+                              else self.baches(batch_numbers))
         self.match_id = list(range(len(self))) if match_id is None else match_id
         if self.batch_numbers is not None:
             (self.games_composition, self.results, self.batch_numbers,

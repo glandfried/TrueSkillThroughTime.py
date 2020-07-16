@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 sys.path.append('/home/mati/Storage/Tesis/AnalisisGo-Tesis/')
-import TTT as thM
+import TTTorg as thM
 import time
 from line_profiler import LineProfiler
 import cProfile, pstats, io
@@ -11,8 +11,9 @@ from importlib import reload
 reload(thM)
 envM = thM.TrueSkill(draw_probability=0)
 df = pd.read_csv('/home/mati/Storage/Tesis/AnalisisGo-Tesis/DatosPurificados/summary_filtered_handicapPositive.csv')
-df=df[:5000]
+df=df[:500]
 df['date'] = df['started'].apply(lambda row: row[0:7])
+
 #composition = [[[1],[2]], [[2],[3]], [[3],[1]]]
 #results = [[0,1], [0,1], [0,1]]
 #batch_number = [1,2,3]
@@ -35,7 +36,8 @@ historyM = envM.history(composition,results,batch_numbers=batch)
 historyM.through_time(online=False)
     #profile = LineProfiler(historyM.convergence())
 historyM.convergence()
-
+print('Cambiado', historyM.posterior)
+#%%
 #print('Mati',historyM.times[0].posteriors)
 #endM = time.time()
 pr.disable()
@@ -50,5 +52,5 @@ s = io.StringIO()
 ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
 ps.print_stats()
 
-with open('test-5k.txt', 'w+') as f:
+with open('/home/mati/Storage/Tesis/AnalisisGo-Tesis/testviejo.txt', 'w+') as f:
     f.write(s.getvalue())
