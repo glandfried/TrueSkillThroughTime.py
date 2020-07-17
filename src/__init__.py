@@ -435,6 +435,7 @@ class Time(object):
             self.played[i] = self.games_played(i)
         self.time_elapsed = {}
         for i in self.players:
+            print(last_batch[i], batch_number)
             elapsed = 0 if last_batch[i] is None else last_batch[i] - batch_number
             self.time_elapsed[i] = elapsed
 
@@ -542,6 +543,7 @@ class Time(object):
     def convergence(self):
         delta = math.inf
         iterations = 0
+        #print(self.likelihoods)
         while delta > self.epsilon and iterations < self.iterations:
             delta = self.iteration()
             iterations += 1
@@ -643,14 +645,21 @@ class History(object):
                 if (self.batchType == 'year') or (self.batchType == 'years'):
                     for i in range(len(baches)-1):
                         baches[i] = dateutil.parser.parse(batch_numbers[i]).year
+
                     baches[i+1] = dateutil.parser.parse(batch_numbers[i+1]).year
                     return baches
                 elif (self.batchType == 'month') or (self.batchType == 'months'):
+                    batches = []
+                    count = 0
                     for i in range(len(baches)-1):
                         baches[i] = [dateutil.parser.parse(batch_numbers[i]).year,
                                      dateutil.parser.parse(batch_numbers[i]).month]
-                    baches[i+1] = [dateutil.parser.parse(batch_numbers[i+1]).year,
-                                   dateutil.parser.parse(batch_numbers[i+1]).month]
+                        if baches[i] not in batches:
+                            batches.append(baches[i])
+                            count += 1
+                        baches[i] = count
+                    baches[i+1] = count
+
                     return baches
             except ValueError:
                 print("Wrong format of batch_number")
