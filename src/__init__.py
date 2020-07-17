@@ -46,8 +46,8 @@ import time as clock
 #import ipdb
 
 BETA = 25/6
-sqrt2 = math.sqrt(2)
-sqrt2pi = math.sqrt(2 * math.pi)
+SQRT2 = math.sqrt(2)
+SQRT2PI = math.sqrt(2 * math.pi)
  # global_env es solo para synergia
 __all__ = [
     'TrueSkill', 'Rating', 'Team', 'Game', 'History',
@@ -208,11 +208,11 @@ class Game(object):
         teams_sorted, index_sorted, _ = list(zip(*teams_index_sorted))
         self.o = list(index_sorted)
         self.t = teams_sorted
-        self.numTeam = len(self.teams)
-        self.teamAv = []
-        self.teamPerformance = [None]*self.numTeam
+        self.number_of_teams = len(self.teams)
+        self.team_av = []
+        self.team_performance = [None]*self.number_of_teams
         for i in range(len(self.t)):
-            self.teamAv.append([])
+            self.team_av.append([])
             mus = 0
             sigmas = 0
             betas = 0
@@ -220,13 +220,16 @@ class Game(object):
                 mus += self.t[i][j].mu
                 sigmas += self.t[i][j].sigma**2
                 betas += self.t[i][j].beta**2
-                self.teamAv[i].append(None)
-            self.teamPerformance[i] = Rating(mus, math.sqrt(sigmas+betas))
+                self.team_av[i].append(None)
+            self.team_performance[i] = Rating(mus, math.sqrt(sigmas+betas))
         for i in range(len(self.t)):
             for j in range(len(self.t[i])):
-                self.teamAv[i][j] = Rating(self.teamPerformance[i].mu-self.t[i][j].mu, math.sqrt(self.teamPerformance[i].sigma**2-self.t[i][j].sigma**2))
+                self.team_av[i][j] = Rating(self.team_performance[i].mu
+                                            - self.t[i][j].mu,
+                                            math.sqrt(self.team_performance[i].sigma**2
+                                            - self.t[i][j].sigma**2))
 
-        self.d = [self.teamPerformance[e] - self.teamPerformance[e+1]
+        self.d = [self.team_performance[e] - self.team_performance[e+1]
                   for e in range(len(self.t)-1)]
         # self.likelihood = [[Gaussian() for r in te.ratings] for te in self.teams]
         # self.prior = [[r for r in te.ratings] for te in self.teams]
@@ -236,7 +239,7 @@ class Game(object):
         self.posterior = self.compute_posterior()  # 0.00025
         self.evidence = self.compute_evidence()  # 0.00006
 
-    def sortTeams(self, teams, results):
+    def sort_teams(self, teams, results):
         teams_result_sorted = sorted(zip(teams, results), key=lambda x: x[1])
         res = list(zip(*teams_result_sorted))
         return list(res[0]), list(res[1])
@@ -250,12 +253,12 @@ class Game(object):
     @property
     def m_t_ft(self):
         # truncadas = 0
-        def thisDelta(old, new):
+        def this_delta(old, new):
             mu_old, sigma_old = old
             mu_new, sigma_new = new
             return max(abs(mu_old-mu_new), abs(sigma_old-sigma_new))
 
-        team_perf_messages = [[self.teamPerformance[e], Gaussian(), Gaussian()]
+        team_perf_messages = [[self.team_performance[e], Gaussian(), Gaussian()]
                               for e in range(len(self.t))]
 
         diff_messages = [[Gaussian(), Gaussian()]
@@ -275,7 +278,7 @@ class Game(object):
 
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
 
-                delta = max(delta, thisDelta(d_old, list_prod(diff_messages[i])))
+                delta = max(delta, this_delta(d_old, list_prod(diff_messages[i])))
 
                 team_perf_messages[i+1][1] = (
                     list_prod(team_perf_messages[i])/team_perf_messages[i][2]
@@ -291,7 +294,7 @@ class Game(object):
                 )
 
                 diff_messages[i][1] = diff_messages[i][0].trunc/diff_messages[i][0]
-                delta = max(delta, thisDelta(d_old, list_prod(diff_messages[i])))
+                delta = max(delta, this_delta(d_old, list_prod(diff_messages[i])))
                 team_perf_messages[i][2] = (
                     list_prod(team_perf_messages[i+1])/team_perf_messages[i+1][1]
                     + diff_messages[i][1])
@@ -321,42 +324,42 @@ class Game(object):
         return res
 
     @property
-    def likelihoodAnalitico(self):
+    def likelihood_analitico(self):
         def vt(t):
-            global sqrt2pi, sqrt2
-            pdf = (1 / sqrt2pi) * math.exp(- (t*t / 2))
-            cdf = 0.5*(1+math.erf(t/sqrt2))
+            global SQRT2PI, SQRT2
+            pdf = (1 / SQRT2PI) * math.exp(- (t*t / 2))
+            cdf = 0.5*(1+math.erf(t/SQRT2))
             return (pdf/cdf)
 
         def wt(t, v):
             w = v * (v + t)
             return w
         delta = self.d[0].mu
-        thetaCuadrado = self.d[0].sigma*self.d[0].sigma
+        theta_pow2 = self.d[0].sigma*self.d[0].sigma
         theta = self.d[0].sigma
         t = delta/theta
         V = vt(t)
         W = wt(t, v=V)
-        deltaDiv = (theta/(V+t))+delta
-        thetaDivCuad = (1/W-1)*thetaCuadrado
+        delta_div = (theta/(V+t))+delta
+        theta_div_pow2 = (1/W-1)*theta_pow2
 
-        def winner(mui, sigmai, betai, delta=delta,
-                   thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
-                   thetaDivCuad=thetaDivCuad):
-            mu = deltaDiv + mui - delta
-            sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
-                                       - sigmai*sigmai)
-            #return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
-            return Gaussian(mu=mu, sigma=sigmaAnalitico)
+        def winner(mu_i, sigma_i, beta_i, delta=delta,
+                   theta_pow2=theta_pow2, delta_div=delta_div,
+                   theta_div_pow2=theta_div_pow2):
+            mu = delta_div + mu_i - delta
+            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
+                                        - sigma_i*sigma_i)
+            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
+            return Gaussian(mu=mu, sigma=sigma_analitico)
 
-        def looser(mui, sigmai, betai, delta=delta,
-                   thetaCuadrado=thetaCuadrado, deltaDiv=deltaDiv,
-                   thetaDivCuad=thetaDivCuad):
-            mu = delta + mui - deltaDiv
-            sigmaAnalitico = math.sqrt(thetaDivCuad + thetaCuadrado
-                                       - sigmai*sigmai)
-            #return Rating(mu=mu, sigma=sigmaAnalitico, beta=betai)
-            return Gaussian(mu=mu, sigma=sigmaAnalitico)
+        def looser(mu_i, sigma_i, beta_i, delta=delta,
+                   theta_pow2=theta_pow2, delta_div=delta_div,
+                   theta_div_pow2=theta_div_pow2):
+            mu = delta + mu_i - delta_div
+            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
+                                        - sigma_i*sigma_i)
+            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
+            return Gaussian(mu=mu, sigma=sigma_analitico)
 
         players = [[None]*len(self.t[0]), [None]*len(self.t[1])]
         for j in range(len(self.t[0])):
@@ -370,15 +373,15 @@ class Game(object):
 
     @property
     def m_fp_s(self):
-        if self.numTeam > 2:
+        if self.number_of_teams > 2:
             t_ft = self.m_t_ft
-            return [[t_ft[e] - self.teamAv[e][i] for i in range(len(self.t[e]))]
+            return [[t_ft[e] - self.team_av[e][i] for i in range(len(self.t[e]))]
                     for e in range(len(self.t))]
         else:
-            return self.likelihoodAnalitico
+            return self.likelihood_analitico
 
     def compute_likelihood(self):
-        likelihood, _ = self.sortTeams(self.m_fp_s, self.o)
+        likelihood, _ = self.sort_teams(self.m_fp_s, self.o)
         return likelihood
 
     def compute_posterior(self):
@@ -572,7 +575,7 @@ class History(object):
                  epsilon=10**-3, iterations=10, batchType='year', env=None):
         self.batchType = batchType.lower()
         self.env = global_env() if env is None else env
-        self.numbOfFirstTeam = games_composition[0]
+        self.numb_of_first_team = games_composition[0]
         self.games_composition = list(map(lambda xs: xs
                                       if isinstance(xs[0], list)
                                       else [[x] for x in xs],
@@ -607,7 +610,7 @@ class History(object):
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
-        self.batchNumb = self.batchNumber(self.batch_numbers)
+        #self.number_of_batchs = self.batch_number(self.batch_numbers)
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
@@ -615,13 +618,13 @@ class History(object):
 # Falta agregarle mas datos, nuermo de jugadores distintos, numero de equipos?,etc
     def status(self):
         print("El numero de partidas ingresadas fueron:", len(self.games_composition))
-        print("El numero de baches ingresados fueron:", self.batchNumb)
+        print("El numero de baches ingresados fueron:", self.batch_number(self.batch_numbers))
         print("El tipo de baches ingresados son:", self.batch_numbers[0])
         print("La cantidad de jugadores:", len(self.players))
         print("La primer partida son de ", len(self.games_composition[0]), "equipos")
-        self.teamsNumber(self.numbOfFirstTeam)
+        self.teams_number(self.numb_of_first_team)
 
-    def batchNumber(self, batch_numbers):
+    def batch_number(self, batch_numbers):
         count = 0
         i = 0
         while i < len(self):
@@ -630,7 +633,7 @@ class History(object):
             count += 1
         return count
 
-    def teamsNumber(self, comp):
+    def teams_number(self, comp):
         print("La primer partida tiene una distribucion: ", end=" ")
         for i in range(len(comp)-1):
             print(len(self.games_composition[0][i]), '|', end=" ")
