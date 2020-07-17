@@ -102,12 +102,12 @@ class TrueSkill(object):
         return Game(teams=teams, results=results, names=names)
 
     def history(self, games_composition, results, batch_numbers=None,
-                prior_dict={}, epsilon=None, iterations=10, batchType='year'):
+                prior_dict={}, epsilon=None, iterations=10, batch_type='year'):
         if epsilon is None:
             epsilon = self.epsilon
         return History(games_composition=games_composition, results=results,
                        batch_numbers=batch_numbers, prior_dict=prior_dict,
-                       default=self.Rating(), epsilon=epsilon, iterations=10, batchType=batchType)
+                       default=self.Rating(), epsilon=epsilon, iterations=10, batch_type=batch_type)
 
     @property
     def Rating(self):
@@ -192,7 +192,6 @@ class Rating(Gaussian):
             args = ('.'.join(["TrueSkill", c.__name__]), *iter(self),
                     self.beta, self.noise)
         return '%s(mu=%.3f, sigma=%.3f, beta=%.3f, noise=%.3f)' % args
-
 
 
 class Game(object):
@@ -438,7 +437,6 @@ class Time(object):
             self.played[i] = self.games_played(i)
         self.time_elapsed = {}
         for i in self.players:
-            print(last_batch[i], batch_number)
             elapsed = 0 if last_batch[i] is None else last_batch[i] - batch_number
             self.time_elapsed[i] = elapsed
 
@@ -572,8 +570,9 @@ class Time(object):
 class History(object):
     def __init__(self, games_composition, results, batch_numbers=None,
                  prior_dict={}, default=None, match_id=None,
-                 epsilon=10**-3, iterations=10, batchType='year', env=None):
-        self.batchType = batchType.lower()
+                 epsilon=10**-3, iterations=10, batch_type='year', env=None):
+        self.batch_type = batch_type.lower()
+        self.batch_example = 0
         self.env = global_env() if env is None else env
         self.numb_of_first_team = games_composition[0]
         self.games_composition = list(map(lambda xs: xs
@@ -609,19 +608,23 @@ class History(object):
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
+        self.posteriors_players = dict.fromkeys(self.players, 0)
+
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
         #self.number_of_batchs = self.batch_number(self.batch_numbers)
         # self.trueSkill()
         # self.through_time()
         # self.through_time(online=False); self.convergence()
 
+
 # Falta agregarle mas datos, nuermo de jugadores distintos, numero de equipos?,etc
     def status(self):
-        print("El numero de partidas ingresadas fueron:", len(self.games_composition))
-        print("El numero de baches ingresados fueron:", self.batch_number(self.batch_numbers))
-        print("El tipo de baches ingresados son:", self.batch_numbers[0])
-        print("La cantidad de jugadores:", len(self.players))
-        print("La primer partida son de ", len(self.games_composition[0]), "equipos")
+        print("The number of games upload is:", len(self.games_composition))
+        print("The number of temporal batches upload is:", self.batch_number(self.batch_numbers))
+        print("The first and last temporal batch are:", self.batch_example)
+        print("The number of different players is:", len(self.players))
+        print("The first and last game are of ", len(self.games_composition[0]),
+              ",", len(self.games_composition[-1]), "teams")
         self.teams_number(self.numb_of_first_team)
 
     def batch_number(self, batch_numbers):
@@ -634,35 +637,37 @@ class History(object):
         return count
 
     def teams_number(self, comp):
-        print("La primer partida tiene una distribucion: ", end=" ")
+        print("The first and last game have a composition like: ", end=" ")
         for i in range(len(comp)-1):
-            print(len(self.games_composition[0][i]), '|', end=" ")
-        print(len(self.games_composition[0][i+1]), end=" ")
+            print(self.games_composition[0][i], '|', end=" ")
+        print(self.games_composition[0][i+1], ",", end=" ")
+        for i in range(len(comp)-1):
+            print(self.games_composition[-1][i], '|', end=" ")
+        print(self.games_composition[-1][i+1], end=" ")
 
     def baches(self, batch_numbers):  # esta sin testear todavia
         if type(batch_numbers[0]) == int:
             return batch_numbers
         else:
             try:
+
                 baches = [None]*len(batch_numbers)
-                if (self.batchType == 'year') or (self.batchType == 'years'):
-                    for i in range(len(baches)-1):
+                if (self.batch_type == 'year') or (self.batch_type == 'years'):
+                    for i in range(len(baches)):
                         baches[i] = dateutil.parser.parse(batch_numbers[i]).year
-
-                    baches[i+1] = dateutil.parser.parse(batch_numbers[i+1]).year
+                    self.batch_example = (baches[0], baches[i])
                     return baches
-                elif (self.batchType == 'month') or (self.batchType == 'months'):
-                    batches = []
-                    count = 0
-                    for i in range(len(baches)-1):
-                        baches[i] = [dateutil.parser.parse(batch_numbers[i]).year,
-                                     dateutil.parser.parse(batch_numbers[i]).month]
-                        if baches[i] not in batches:
-                            batches.append(baches[i])
-                            count += 1
-                        baches[i] = count
-                    baches[i+1] = count
 
+                elif (self.batch_type == 'month') or (self.batch_type == 'months'):
+                    for i in range(len(baches)):
+                        baches[i] = int(str(dateutil.parser.parse(batch_numbers[i]).year)
+                                        + str(dateutil.parser.parse(batch_numbers[i]).month))
+
+
+                    self.batch_example = (f"({dateutil.parser.parse(batch_numbers[0]).year}"
+                                          f"-{dateutil.parser.parse(batch_numbers[0]).month},"
+                                          f"{dateutil.parser.parse(batch_numbers[i]).year}-"
+                                          f"{dateutil.parser.parse(batch_numbers[i]).month})")
                     return baches
             except ValueError:
                 print("Wrong format of batch_number")
@@ -722,6 +727,14 @@ class History(object):
             # print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
 
+    def posteriors_player(self):
+        for t in range(len(self.times)):
+            for key in self.times[t].posteriors:
+                if t >= self.posteriors_players[key]:
+                    self.posteriors_players[key] = t
+        #for key in self.posteriors_players:
+        #    self.posteriors_players[key][1] = self.batch_numbers[self.posteriors_players[key][1]]
+
     def update_learning_curves(self):
         self.learning_curves = defaultdict(lambda: [])
         for time in self.times:
@@ -764,10 +777,12 @@ class History(object):
             start = clock.time()
             delta = min(self.backward_propagation(), delta)
             delta = min(self.forward_propagation(), delta)
+            print(delta)
             end = clock.time()
             #print("d: ", round(delta, 6), ", t: ", round(end-start, 4))  # , end='\r')
             i += 1
         self.update_learning_curves()
+        self.posteriors_player()
 
     def players(self):
         return set(flat(flat(self.games_composition)))
