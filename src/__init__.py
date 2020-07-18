@@ -609,6 +609,7 @@ class History(object):
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
         self.posteriors_players = dict.fromkeys(self.players, 0)
+        self.batch_name = []
 
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
         #self.number_of_batchs = self.batch_number(self.batch_numbers)
@@ -628,6 +629,9 @@ class History(object):
         self.teams_number(self.numb_of_first_team)
 
     def batch_number(self, batch_numbers):
+        '''
+        Method to know how many batches are with out running TTT
+        '''
         count = 0
         i = 0
         while i < len(self):
@@ -637,6 +641,9 @@ class History(object):
         return count
 
     def teams_number(self, comp):
+        '''
+        Method to print status of game type with out running TTT
+        '''
         print("The first and last game have a composition like: ", end=" ")
         for i in range(len(comp)-1):
             print(self.games_composition[0][i], '|', end=" ")
@@ -727,11 +734,23 @@ class History(object):
             # print('Porcentaje:', int(t/len(self)*1000), t, delta,  end='\r')
         return delta
 
-    def posteriors_player(self):
+    def last_batch_player(self):
+        '''
+        Method to save the last batch of each player
+        '''
         for t in range(len(self.times)):
             for key in self.times[t].posteriors:
                 if t >= self.posteriors_players[key]:
                     self.posteriors_players[key] = t
+
+    def posteriors_player(self):
+        '''
+        Method to give the last posterior of each player and in wich batch
+        '''
+        dic_posterior = {}
+        for key in self.posteriors_players:
+            dic_posterior[key] = [self.times[self.posteriors_players[key]].posteriors[key], self.batch_name[self.posteriors_players[key]]]
+        return dic_posterior
         #for key in self.posteriors_players:
         #    self.posteriors_players[key][1] = self.batch_numbers[self.posteriors_players[key][1]]
 
@@ -747,6 +766,7 @@ class History(object):
         while i < len(self):
             t = 1 if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
+            self.batch_name.append(self.batch_numbers[i])
             time = Time(games_composition=self.games_composition[i:j],
                         results=self.results[i:j],
                         forward_priors=self.forward_priors,
@@ -777,12 +797,11 @@ class History(object):
             start = clock.time()
             delta = min(self.backward_propagation(), delta)
             delta = min(self.forward_propagation(), delta)
-            print(delta)
             end = clock.time()
             #print("d: ", round(delta, 6), ", t: ", round(end-start, 4))  # , end='\r')
             i += 1
         self.update_learning_curves()
-        self.posteriors_player()
+        self.last_batch_player()
 
     def players(self):
         return set(flat(flat(self.games_composition)))
