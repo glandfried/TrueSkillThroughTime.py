@@ -599,6 +599,7 @@ class History(object):
         self.times = []
         self.match_time = {}
         self.last_batch = defaultdict(lambda: None)
+
         ############
         # Por si queremos comparar con trueskill
         self.forward_priors_trueskill = self.initial_prior.copy()
@@ -608,7 +609,6 @@ class History(object):
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
-        self.posteriors_players = dict.fromkeys(self.players, 0)
         self.batch_name = []
 
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
@@ -743,22 +743,20 @@ class History(object):
                 if t >= self.posteriors_players[key]:
                     self.posteriors_players[key] = t
 
-    def posteriors_player(self):
-        '''
-        Method to give the last posterior of each player and in wich batch
-        '''
-        dic_posterior = {}
-        for key in self.posteriors_players:
-            dic_posterior[key] = [self.times[self.posteriors_players[key]].posteriors[key], self.batch_name[self.posteriors_players[key]]]
-        return dic_posterior
-        #for key in self.posteriors_players:
-        #    self.posteriors_players[key][1] = self.batch_numbers[self.posteriors_players[key][1]]
-
     def update_learning_curves(self):
         self.learning_curves = defaultdict(lambda: [])
         for time in self.times:
             for i in time.posteriors:
                 self.learning_curves[i].append(time.posteriors[i])
+
+    def posteriors_player(self):
+        '''
+        Method to give the last posterior of each player and in wich batch
+        '''
+        dic_posterior = {}
+        for key in self.learning_curves:
+            dic_posterior[key] = [self.learning_curves[key][-1], self.batch_name[len(self.learning_curves[key])-1]]
+        return dic_posterior
 
     def through_time(self, online=True):
         i = 0
