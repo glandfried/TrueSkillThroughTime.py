@@ -599,7 +599,6 @@ class History(object):
         self.times = []
         self.match_time = {}
         self.last_batch = defaultdict(lambda: None)
-
         ############
         # Por si queremos comparar con trueskill
         self.forward_priors_trueskill = self.initial_prior.copy()
@@ -609,6 +608,7 @@ class History(object):
         self.learning_curves_online = defaultdict(lambda: [])
         self.learning_curves = {}
         self.players = set(flat(flat(games_composition)))
+        self.posteriors_players = dict.fromkeys(self.players, 0)
         self.batch_name = []
 
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
