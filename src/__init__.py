@@ -535,7 +535,6 @@ class Time(object):
                     n = names[i]
                     max_delta = max(abs(game.likelihood[te][i].mu
                                     - self.likelihoods[n][g].mu), max_delta)
-
                     self.likelihoods[n][g] = game.likelihood[te][i]
             if not (len(self.evidence) > g):
                 """
@@ -553,7 +552,6 @@ class Time(object):
     def convergence(self):
         delta = math.inf
         iterations = 0
-        #print(self.likelihoods)
         while delta > self.epsilon and iterations < self.iterations:
             delta = self.iteration()
             iterations += 1
@@ -620,7 +618,7 @@ class History(object):
         self.players = set(flat(flat(games_composition)))
         self.posteriors_players = dict.fromkeys(self.players, 0)
         self.batch_name = []
-
+        self.trueskill = True
         # Ver si tiene alguna utilidad, o solo llamarlo si se pide status
         #self.number_of_batchs = self.batch_number(self.batch_numbers)
         # self.trueSkill()
@@ -764,14 +762,21 @@ class History(object):
         Method to give the last posterior of each player and in wich batch
         '''
         dic_posterior = {}
-        if self.batch_numbers is not None:
-            for key in self.learning_curves:
-                dic_posterior[key] = [self.learning_curves[key][-1], self.batch_name[len(self.learning_curves[key])-1]]
+        trueskill = self.trueskill
+        if trueskill:
+            for key in self.players:
+                dic_posterior[key] = [self.times[self.posteriors_players[key]].posteriors[key]]
             return dic_posterior
         else:
-            for key in self.learning_curves:
-                dic_posterior[key] = [self.learning_curves[key][-1]]
-            return dic_posterior
+            if self.batch_numbers is not None:
+                for key in self.learning_curves:
+                    dic_posterior[key] = ([self.learning_curves[key][-1],
+                                          self.batch_name[len(self.learning_curves[key])-1]])
+                return dic_posterior
+            else:
+                for key in self.learning_curves:
+                    dic_posterior[key] = [self.learning_curves[key][-1]]
+                return dic_posterior
 
     def through_time(self, online=True):
         i = 0
@@ -787,7 +792,7 @@ class History(object):
                         forward_priors=self.forward_priors,
                         batch_number=t, last_batch=self.last_batch,
                         match_id=self.match_id[i:j], epsilon=self.epsilon,
-                        iterations=self.iterations)
+                        iterations=1)
 
             self.match_time.update({m: time for m in self.match_id[i:j]})
             if self.batch_numbers is not None:
@@ -802,9 +807,11 @@ class History(object):
                 self.learning_curves_online[p].append(time.posteriors[p])
             i = j
         end = clock.time()
+        self.last_batch_player()
         # print("End first pass:", round(end-start, 3))
 
     def convergence(self):
+        self.trueskill = False
         delta = math.inf
         loop = 10
         i = 0
@@ -816,7 +823,7 @@ class History(object):
             #print("d: ", round(delta, 6), ", t: ", round(end-start, 4))  # , end='\r')
             i += 1
         self.update_learning_curves()
-        self.last_batch_player()
+
 
     def players(self):
         return set(flat(flat(self.games_composition)))
