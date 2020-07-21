@@ -66,7 +66,10 @@ TAU = SIGMA / 100
 #: Default draw probability of the game.
 DRAW_PROBABILITY = 0.0
 #: Epsilon
-EPSILON = 1e-1
+EPSILON = 1e-3
+
+#: Batch Type
+BATCH_TYPE = 'year'
 # Agregamos, los valores de handicap por default?
 
 
@@ -102,7 +105,7 @@ class TrueSkill(object):
         return Game(teams=teams, results=results, names=names)
 
     def history(self, games_composition, results, batch_numbers=None,
-                prior_dict={}, epsilon=None, iterations=10, batch_type='year'):
+                prior_dict={}, epsilon=None, iterations=10, batch_type=BATCH_TYPE):
         if epsilon is None:
             epsilon = self.epsilon
         return History(games_composition=games_composition, results=results,
@@ -202,11 +205,13 @@ class Game(object):
         if names is not None:
             self.names = [list(n) if isinstance(n, Iterable) else [n]
                           for n in names]
+
         teams_index_sorted = sorted(zip(self.teams, range(len(self.teams)),
                                         self.results), key=lambda x: x[2])
         teams_sorted, index_sorted, _ = list(zip(*teams_index_sorted))
         self.o = list(index_sorted)
         self.t = teams_sorted
+
         self.number_of_teams = len(self.teams)
         self.team_av = []
         self.team_performance = [None]*self.number_of_teams
@@ -333,6 +338,7 @@ class Game(object):
         def wt(t, v):
             w = v * (v + t)
             return w
+
         delta = self.d[0].mu
         theta_pow2 = self.d[0].sigma*self.d[0].sigma
         theta = self.d[0].sigma
@@ -423,7 +429,7 @@ class Time(object):
     def __init__(self, games_composition, results,
                  forward_priors=defaultdict(lambda: Rating()),
                  batch_number=None, last_batch=defaultdict(lambda: None),
-                 match_id=None, epsilon=1e-2, iterations=10):
+                 match_id=None, epsilon=EPSILON, iterations=10):
         """
         games_composition = [[[1],[2]],[[1],[3]],[[2],[3]]]
         """
@@ -431,23 +437,24 @@ class Time(object):
         self.results = results
         self.batch_number = batch_number
         self.match_id = match_id
+        self.epsilon = epsilon
         self.players = set(flat(flat(games_composition)))
         self.played = {}
         for i in self.players:
             self.played[i] = self.games_played(i)
         self.time_elapsed = {}
         for i in self.players:
-            elapsed = 0 if last_batch[i] is None else last_batch[i] - batch_number
+            elapsed = 0 if last_batch[i] is None else abs(last_batch[i] - batch_number)
             self.time_elapsed[i] = elapsed
 
         self.forward_priors = {}
+
         for i in self.players:
             self.forward_priors[i] = forward_priors[i].forget(self.time_elapsed[i])
-
         self.priors = dict(self.forward_priors)
         self.backward_priors = defaultdict(lambda: Gaussian())
         self.likelihoods = defaultdict(lambda: defaultdict(lambda: Gaussian()))
-        self.epsilon = epsilon
+
         self.iterations = iterations
         self.evidence = []
         self.last_evidence = []
@@ -519,14 +526,16 @@ class Time(object):
         max_delta = 0
         for g in range(len(self)):
             within_priors = self.within_priors(g)
-            game = Game(within_priors, self.results[g],
-                        self.games_composition[g])
+            game = Game(teams=within_priors, results=self.results[g],
+                        names=self.games_composition[g])
+
             for te in range(self.teams(g)):
                 names = self.names(g)[te]
                 for i in range(len(names)):
                     n = names[i]
                     max_delta = max(abs(game.likelihood[te][i].mu
                                     - self.likelihoods[n][g].mu), max_delta)
+
                     self.likelihoods[n][g] = game.likelihood[te][i]
             if not (len(self.evidence) > g):
                 """
@@ -570,7 +579,7 @@ class Time(object):
 class History(object):
     def __init__(self, games_composition, results, batch_numbers=None,
                  prior_dict={}, default=None, match_id=None,
-                 epsilon=10**-3, iterations=10, batch_type='year', env=None):
+                 epsilon=EPSILON, iterations=10, batch_type=BATCH_TYPE, env=None):
         self.batch_type = batch_type.lower()
         self.batch_example = 0
         self.env = global_env() if env is None else env
@@ -589,6 +598,7 @@ class History(object):
                                   list(zip(*sorted(zip(self.games_composition,
                                        self.results, self.batch_numbers,
                                        self.match_id), key=lambda x: x[2]))))
+
         self.default = env.Rating() if default is None else default
         self.epsilon = epsilon
         self.iterations = iterations
@@ -754,9 +764,14 @@ class History(object):
         Method to give the last posterior of each player and in wich batch
         '''
         dic_posterior = {}
-        for key in self.learning_curves:
-            dic_posterior[key] = [self.learning_curves[key][-1], self.batch_name[len(self.learning_curves[key])-1]]
-        return dic_posterior
+        if self.batch_numbers is not None:
+            for key in self.learning_curves:
+                dic_posterior[key] = [self.learning_curves[key][-1], self.batch_name[len(self.learning_curves[key])-1]]
+            return dic_posterior
+        else:
+            for key in self.learning_curves:
+                dic_posterior[key] = [self.learning_curves[key][-1]]
+            return dic_posterior
 
     def through_time(self, online=True):
         i = 0
@@ -764,7 +779,9 @@ class History(object):
         while i < len(self):
             t = 1 if self.batch_numbers is None else self.batch_numbers[i]
             j = self.end_batch(i)
-            self.batch_name.append(self.batch_numbers[i])
+            if self.batch_numbers is not None:
+                self.batch_name.append(self.batch_numbers[i])
+
             time = Time(games_composition=self.games_composition[i:j],
                         results=self.results[i:j],
                         forward_priors=self.forward_priors,
