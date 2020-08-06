@@ -553,11 +553,53 @@ La evidencia es otro nombre para el Prior predictive.
  \end{equation}
 
  
- 
- 
- 
- 
- 
+
+\section{Draw}
+
+If draws are permitted, the winning outcome $r_{(j)} < r_{(j+1)}$, requires $t_{r_{(j)}} > t_{r_{(j+1)}} + \epsilon$, and the draw outcome $r_{(j)}=r_{(j+1)}$ requires $|t_{r_{(j)}} > t_{r_{(j+1)}}| \leq \epsilon$ where $\epsilon$ is a draw margin.
+
+\vspace{0.3cm}
+
+The draw margin can be seted by the a given ``empirical draw probability''.
+Para entender de donde obtener este valor, debemos recordar que la diferencia de rendimientos verdadera se generan a partir de una distribuci\'on normal centrada en las verdaderas habilidad y con la suma de los desvios asociacios a los rendimientos $\N( \sum_i s_i^{\text{true}} - \sum_j s_j^{\text{true}},(n_1+n_2)\beta^2)$.
+Notar que esta distribuci\'on no depende de nuestras creencias, por eso no depende de nuestra incertidumbre $\sigma$. 
+
+\begin{figure}[H]
+\centering
+  \includegraphics[width=0.5\textwidth]{figures/draw.pdf}
+  \caption{La distirbuci\'on verdadera de diferencia entre equipos, $\N( \sum_i s_i^{\text{true}} - \sum_j s_j^{\text{true}},(n_1+n_2)\beta^2)$.}
+  \label{fig:draw}
+\end{figure}
+
+Intuitivamente sabemos que la probabilidad de empate depende de la diferencia de habilidad.
+Por eso, cuando hablamos de \textbf{una} probabilidad emp\'irica, en el fondo estamos pensando \textbf{la} probabilidad emp\'irica para una diferencia de habilidad determinada.
+En particular \textbf{la probabilidad de empates para jugadores \emph{si tuviera misma habilidad}}.
+En este punto nos estamos mordiendo la cola, porque estamos construyendo el modelo para estimar habilidades justamente porque no las conocemos.
+En este punto es bueno remarcar que la probabilidad de empate para jugadores de misma habilidad, así como el $\beta$, es un valor en buen medida arbitraro de nuestro modelo.
+Si lo quisieramos estimar, deberíamos proponer una distirbuci\'on de creencias a priori, y actualizarla con nuestro modelo.
+
+\vspace{0.3cm}
+
+Suponiendo que tenemos la probabilidad de empate para oponentes de misma habilidad, para mantener estable el \'area ante diferentes escenarios, el $\epsilon$ debe poder adaptarse.
+El \'unico par\'ametro libre en este caso es la cantidad de jugadores en los equipos, que modifica el ancho de la distribuci\'on de la diferencia de habilidad.
+
+\begin{figure}[H]
+\centering
+  \includegraphics[page=2,width=0.5\textwidth]{figures/draw.pdf}
+  \caption{Distribuci\'on de probabilidades de diferencias de rendimientos, y área correspondiente a la probabilidad de empate $0.25$}
+  \label{fig:draw}
+\end{figure}
+
+Por eso, el $\epsilon$ se dice que depende de, 
+
+\begin{equation}
+ \text{Draw probability} = \Phi(\frac{\epsilon}{\sqrt{n_1+n_2}\beta}) - \Phi(\frac{-\epsilon}{\sqrt{n_1+n_2}\beta})
+\end{equation}
+
+Donde el denominador se corresponde con el desvio total de los $n_1 + n_2$ jugadores.
+Recordar que $\Phi$ es la acumulada de la distribuc\'on Normal estandarizada, centrada en 0. 
+
+
  
  
  
@@ -728,21 +770,6 @@ m_{f_{t_b} \rightarrow p_3}(p_3) & \overset{\hfrac{\text{eq}}{\ref{eq:m_f_v}}}{=
 & \overset{\hfrac{\text{eq}}{\ref{eq:simetria}}}{=}   N(  p_3  \,|\, (\mu_a - \mu_4)  - \delta_{\div} \, , \, \vartheta_{\div}^2 + \sigma_a^2 + \sigma_4^2 + \beta^2)  \\
 \end{split}
 \end{equation}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
