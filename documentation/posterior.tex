@@ -2,7 +2,7 @@
 \usepackage[utf8]{inputenc}
 \input{tex/encabezado.tex}
 
-\usetikzlibrary{bayesnet} % Para que ande se necesita copiar el archivo  tikzlibrarybayesnet.code.tex en la misma carpeta
+\input{tex/tikzlibrarybayesnet.code.tex} % Para que ande se necesita copiar el archivo  tikzlibrarybayesnet.code.tex en la misma carpeta
 
 \usetikzlibrary{arrows}
 \usetikzlibrary{shapes}
@@ -721,7 +721,6 @@ m_{f_{d_1} \rightarrow t_a}(t_a) & \overset{\hfrac{\text{eq}}{\ref{eq:m_f_v}}}{=
 \end{split}
 \end{equation}
 
-
 \paragraph{$\bm{\widehat{m}_{f_d \rightarrow f_{t_b}}(t_b)}$} (Caso perdedor)
 
 \begin{equation}\label{eq:^m_fd_tb}
@@ -803,7 +802,7 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
 
 \begin{center}
 \tikz{ %        
-        \node[factor, xshift=-4cm] (fta) {} ;
+        \node[factor, xshift=-5cm] (fta) {} ;
         \node[const, right=of fta] (nfta) {$f_{t_0}$}; %
         \node[latent, below=of fta,yshift=-0.5cm] (ta) {$t_0$} ; %
         
@@ -811,19 +810,19 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
         \node[const, right=of ftb] (nftb) {$f_{t_1}$}; %
         \node[latent, below=of ftb,yshift=-0.5cm] (tb) {$t_1$} ; %
         
-        \node[factor, xshift=4cm] (ftc) {} ;
+        \node[factor, xshift=5cm] (ftc) {} ;
         \node[const, right=of ftc] (nftc) {$f_{t_2}$}; %        
         \node[latent, below=of ftc,yshift=-0.5cm] (tc) {$t_2$} ; %
         
-        \node[factor, below=of tb, xshift=-2cm] (fd1) {} ;
+        \node[factor, below=of tb, xshift=-3cm] (fd1) {} ;
         \node[const, left=of fd1] (nfd1) {$f_{d_0}$}; %        
-        \node[latent, below=of fd1,yshift=-0.5cm] (d1) {$d_{0}$} ; %
-        \node[factor, below=of d1,yshift=-0.5cm] (fr1) {} ;
+        \node[latent, below=of fd1,yshift=-1cm] (d1) {$d_{0}$} ; %
+        \node[factor, below=of d1,yshift=-1cm] (fr1) {} ;
         
-        \node[factor, below=of tb, xshift=2cm] (fd2) {} ;
+        \node[factor, below=of tb, xshift=3cm] (fd2) {} ;
         \node[const, above=of fd2] (nfd2) {$f_{d_{1}}$}; %        
-        \node[latent, below=of fd2,yshift=-0.5cm] (d2) {$d_{1}$} ; %
-        \node[factor, below=of d2,yshift=-0.5cm] (fr2) {} ;
+        \node[latent, below=of fd2,yshift=-1cm] (d2) {$d_{1}$} ; %
+        \node[factor, below=of d2,yshift=-1cm] (fr2) {} ;
         
         \edge[-] {ta} {fta,fd1}
         \edge[-] {tb} {ftb,fd1,fd2}
@@ -831,19 +830,28 @@ Para calcular la posterior exacta de un equipo $a$ en una partida multiequipos, 
         \edge[-] {d1} {fd1,fr1}
         \edge[-] {d2} {fd2,fr2}
         
+        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize  \emph{loseLikelihood}$(t_1)$} (tb);
         
-        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \ \ \ \textbf{3:} \emph{looseLikelihood}$(t_1)$} (tb);
+        \path[draw, -latex, fill=black!50,sloped] (tb) edge[bend left,draw=black!50] node[midway,below,color=black!75] {\scriptsize  \emph{losePosterior}$(t_1)$} (fd1);
         
-        \path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend left,draw=black!50] node[midway,below,color=black!75] {\scriptsize \textbf{6:} \emph{winLikelihood}$(t_1)$} (tb);
+        \path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend right,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{winLikelihood}$(t_1)$} (tb);
         
-        \path[draw, -latex, fill=black!50,sloped] (ftb) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{prior}$(t_1)$} (tb);
+        \path[draw, -latex, fill=black!50,sloped] (tb) edge[bend right,draw=black!50] node[midway,below,color=black!75] {\scriptsize \emph{winPosterior}$(t_1)$} (fd2);
+        
+        \path[draw, -latex, fill=black!50,sloped] (fta) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{prior}$(t_0)$} (ta);
+        
+        \path[draw, -latex, fill=black!50,sloped] (fr1) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \emph{likelihood}$(d_{0})$} (d1);
+        
+        \path[draw, -latex, fill=black!50,sloped] (d1) edge[bend right,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{\ \ posterior}$(d_{0})$} (fd1);
+        
+        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend right,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{prior}$(d_{0})$} (d1);
+        
+        \path[draw, -latex, fill=black!50,sloped] (tc) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \emph{posterior}$(t_0)$} (ftc);
         
         
-        \path[draw, -latex, fill=black!50,sloped] (fr1) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \textbf{2:} \emph{likelihood}$(d_{0})$} (d1);
-        \path[draw, -latex, fill=black!50,sloped] (fd1) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \textbf{1:} \emph{prior}$(d_{0})$} (d1);
+        %\path[draw, -latex, fill=black!50,sloped] (fr2) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \textbf{5:} \emph{likelihood}$(d_{0})$} (d2);
         
-        \path[draw, -latex, fill=black!50,sloped] (fr2) edge[bend left,draw=black!50] node[midway,above,color=black!75, rotate=180] {\scriptsize \textbf{5:} \emph{likelihood}$(d_{0})$} (d2);
-        \path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \textbf{4:} \emph{prior}$(d_{0})$} (d2);
+        %\path[draw, -latex, fill=black!50,sloped] (fd2) edge[bend left,draw=black!50] node[midway,above,color=black!75] {\scriptsize \textbf{4:} \emph{prior}$(d_{0})$} (d2);
         
         
 } 
@@ -863,11 +871,29 @@ The basic idea is to update repeatedly forward and backward all messages in the 
 The messages that are not yet defined, for example the \emph{winLikelihood}$(t_1)$ in the first forward pass, must be replace it by a neutral form, like a unit scalar or a Gaussian distribution with infinite variance.
 If the messages have already been defined, then use the last available definition.
 
+\paragraph{$\bm{\emph{winPosterior}(t_i)}$:}
+
+\begin{equation}
+ \begin{split}
+  \emph{winPosterior}(t_{i}) = \emph{prior}(t_i) \cdot \emph{winLikelihood}(t_i)
+ \end{split}
+\end{equation}
+
+
+\paragraph{$\bm{\emph{losePosterior}(t_i)}$:}
+
+\begin{equation}
+ \begin{split}
+  \emph{losePosterior}(t_{i}) = \emph{prior}(t_i) \cdot \emph{loseLikelihood}(t_i)
+ \end{split}
+\end{equation}
+
+
 \paragraph{$\bm{\emph{prior}(d_i)}$:}
 
 \begin{equation}
  \begin{split}
-  \emph{prior}(d_{i}) = \iint \mathbb{I}(d_{i} = t_i - t_{i+1} ) \cdot \emph{prior}(t_i) \cdot \emph{prior}(t_{i+1}) \cdot \emph{winLikelihood}(t_{i+1}) \, dt_idt_{i+1} 
+  \emph{prior}(d_{i}) = \iint \mathbb{I}(d_{i} = t_i - t_{i+1} ) \cdot winPosterior(t_i) \cdot losePosterior(t_{i+1}) \, dt_idt_{i+1} 
  \end{split}
 \end{equation}
 
@@ -892,12 +918,21 @@ Then,
 \end{split}
 \end{equation}
 
-\paragraph{\emph{looseLikelihood}$\bm(t_{i+1})$:}
+\paragraph{$\bm{\widehat{\emph{posterior}}(d_i)}$:}
+
+
+\begin{equation}
+\begin{split}
+\widehat{\emph{posterior}}(d_i) &= \widehat{\emph{likelihood}}(d_i)
+\end{split}
+\end{equation}
+
+\paragraph{\emph{loseLikelihood}$\bm(t_{i+1})$:}
 
 \begin{equation}
  \begin{split}
-  \emph{looseLikelihood}(t_{i+1}) = \int \mathbb{I}(d_i>0) \emph{prior}(t_i) \widehat{\emph{likelihood}}(d_i)
- \end{split}
+  \emph{loseLikelihood}(t_{i+1}) & = \iint \mathbb{I}(d_{i} = t_i - t_{i+1} ) \emph{winPosterior}(t_i) \widehat{\emph{posterior}}(d_i) \, dd_idt_{i+1} 
+  \end{split}
 \end{equation}
 
 
@@ -905,7 +940,7 @@ Then,
 
 \begin{equation}
  \begin{split}
-  \emph{winLikelihood}(t_{i}) = \int \mathbb{I}(d_i>0) \emph{prior}(t_{i+1}) \widehat{\emph{likelihood}}(d_i)
+  \emph{winLikelihood}(t_{i}) = \iint \mathbb{I}(d_{i} = t_i - t_{i+1} ) \emph{losePosterior}(t_{i+1}) \widehat{\emph{posterior}}(d_i) \, dd_idt_{i+1} 
  \end{split}
 \end{equation}
 
