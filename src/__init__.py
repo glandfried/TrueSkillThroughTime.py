@@ -246,7 +246,7 @@ class Batch(object):
         self.old_within_prior = dict()
         self.evidences = [0 for _ in range(len(results))]
         self.partake = dict()
-        self.agents = set( [a for event in events for teams in event for team in teams for a in team ] )
+        self.agents = set( [a for event in events for team in event for a in team] )
         for a in self.agents:
             self.partake[a] = [e for e in range(len(events)) for team in events[e] if a in team ]
             self.elapsed[a] = time - last_time[a] if a in last_time else 0
@@ -346,7 +346,7 @@ class History(object):
         self.backward_message = dict()
         self.last_time = dict()
         self.batches = []
-        self.agents = set( [a for event in events for teams in event for team in teams for a in team ] )
+        self.agents = set( [a for event in events for team in event for a in team ] )
         self.trueskill(events,results)
         
     def __repr__(self):

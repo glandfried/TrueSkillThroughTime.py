@@ -602,10 +602,21 @@ Donde el denominador se corresponde con el desvio total de los $n_1 + n_2$ jugad
 Recordar que $\Phi$ es la acumulada de la distribuc\'on Normal estandarizada, centrada en 0. 
 
 
-\subsection{TTT draw-solution}
+\subsection{TTT draw-solution (TTT-D)}
 
 \todo[inline]{Entendimos esto, pasarlo}
  
+\begin{quotation}
+We would thus like to extend the TrueSkill model to incorporate another player-specific parameter which indicates a player's ability to force a draw. 
+\end{quotation}
+
+\en{}
+\es{Adem\'as de la habilidad genérica, los jugadores pueden tener otras habilidades específicas, como habilidad para forzar un empate.}
+%
+\en{}
+\es{La habilidad de empate, $\varepsilon^t_i$, se modela como Gaussiana}
+
+
  
  
  
@@ -1115,11 +1126,6 @@ The update for a game outcome $y^t_i(k)$ is performed by the same way as origina
 At each forward pass we store each forward message, i.e. \emph{prior}$_i(t+1)$.
 And at each backward pass we compute the backward message, i.e. \emph{inversePrior}$_i(t-1)$.
 This messages, together with the last stored \emph{likelihood}$_i(t,k)$, will be used to compute each \emph{withinPrior}$_i(t,k)$ at the temporal batch.
-
-
-
-
-
 
 
 
