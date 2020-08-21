@@ -347,6 +347,8 @@ class History(object):
         self.last_time = dict()
         self.batches = []
         self.agents = set( [a for event in events for team in event for a in team ] )
+        self.partake = dict()
+        for a in self.agents: self.partake[a] = dict()
         self.trueskill(events,results)
         
     def __repr__(self):
@@ -364,6 +366,7 @@ class History(object):
             self.batches.append(b)
             for a in b.agents:
                 self.last_time[a] = t
+                self.partake[a][t] = b
                 self.forward_message[a] = b.forward_prior_out(a)
             i = j
             
@@ -392,7 +395,12 @@ class History(object):
             i += 1
         if len(self.batches)==1: self.batches[0].convergence()
         return step, i
-
+    def learning_curves(self):
+        res = dict()
+        for a in self.agents:
+            res[a] = sorted([ (t, self.partake[a][t].posterior(a)) for t in self.partake[a]])
+        return res
+    
 def max_tuple(t1, t2):
     return max(t1[0],t2[0]), max(t1[1],t2[1])
 

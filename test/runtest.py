@@ -238,7 +238,24 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,5.421,2)
         self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.000,2)
         self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.420,2)
-
+    def test_learning_curve(self):
+        composition = [ [['aj'],['bj']],[['bj'],['cj']], [['cj'],['aj']] ]
+        results = [[0,1],[0,1],[0,1]]    
+        h = ttt.History(composition,results, [5,6,7])
+        h.convergence()
+        lc = h.learning_curves()
+        for a in lc:
+            self.assertEqual(all(lc[a][i][0] < lc[a][i+1][0] for i in range(len(lc[a])-1)), True)
+        self.assertEqual(lc["aj"][0][0],5)
+        self.assertEqual(lc["aj"][-1][0],7)
+        self.assertAlmostEqual(lc["aj"][-1][1].mu,24.997,2)
+        self.assertAlmostEqual(lc["aj"][-1][1].sigma,5.421,2)
+        self.assertAlmostEqual(lc["cj"][-1][1].mu,25.000,2)
+        self.assertAlmostEqual(lc["cj"][-1][1].sigma,5.420,2)
+    
+        
+        
+        
 if __name__ == "__main__":
     unittest.main()
 
