@@ -12,7 +12,6 @@ import math
 #env = ts.TrueSkill(draw_probability=0.25)
 import time
 
-
 #start = time.time()
 #g = ttt.Game([[ttt.Rating(ttt.Gaussian(29,1))] ,[ttt.Rating()]], [1,0], 0.0)
 #time.time() -start
@@ -214,7 +213,32 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(h.batches[0].posterior("b").sigma,5.41968377,5)
         self.assertAlmostEqual(h.batches[2].posterior("b").mu,25.0029304,5)
         self.assertAlmostEqual(h.batches[2].posterior("b").sigma,5.42076739,5)
-        
+    def test_one_batch_history(self):
+        composition = [ [['aj'],['bj']],[['bj'],['cj']], [['cj'],['aj']] ]
+        results = [[0,1],[0,1],[0,1]]
+        bache = [1,1,1]
+        h1 = ttt.History(composition,results, bache)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,22.904,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,6.010,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.110,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.866,2)
+        step , i = h1.convergence()
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,25.000,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,5.419,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.000,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.419,2)
+    
+        h2 = ttt.History(composition,results, [1,2,3])
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,22.904,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,6.012,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.110,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.867,2)
+        step2 , i2 = h2.convergence()
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,24.997,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,5.421,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.000,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.420,2)
+
 if __name__ == "__main__":
     unittest.main()
 

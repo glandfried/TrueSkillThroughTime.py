@@ -368,6 +368,7 @@ class History(object):
             i = j
             
     def convergence(self,epsilon=EPSILON,iterations=10):
+
         step = (inf, inf); i = 0
         while gr_tuple(step, epsilon) and (i < iterations):
             step = (0., 0.)
@@ -389,6 +390,7 @@ class History(object):
                 step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
         
             i += 1
+        if len(self.batches)==1: self.batches[0].convergence()
         return step, i
 
 def max_tuple(t1, t2):
