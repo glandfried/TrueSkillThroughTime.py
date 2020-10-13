@@ -6,23 +6,42 @@
    :license: BSD, see LICENSE for more details.
 """
 import math
+import timeit
+from numba import njit, types, typed
 #import ipdb
-#from numba import jit
+import trueskill as ts
 
 """
 TODO:
-    - NUMBA
+    Optimize.
+    - Numba have several problems with jitclass
+    - c++ may be a better solution
 """
 
-MU = 25.0; SIGMA = (MU/3)
-PI = SIGMA**-2; TAU = PI * MU
-BETA = (SIGMA / 2); GAMMA = (SIGMA / 100)
-DRAW_PROBABILITY = 0.0
+BETA = 1.0
+MU = 0.0
+SIGMA = BETA * 6
+GAMMA = BETA * 0.05
+P_DRAW = 0.0
 EPSILON = 1e-6
+ITERATIONS = 10
 sqrt2 = math.sqrt(2)
 sqrt2pi = math.sqrt(2 * math.pi)
 inf = math.inf
+PI = SIGMA**-2
+TAU = PI * MU
 
+class Environment(object):
+    def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, epsilon=EPSILON, iterations=ITERATIONS):
+        self.mu = mu
+        self.sigma = sigma
+        self.beta = beta
+        self.gamma = gamma
+        self.p_draw = p_draw
+        self.epsilon = epsilon
+        self.iterations = iterations
+
+@njit(types.f8(types.f8))
 def erfc(x):
     #"""(http://bit.ly/zOLqbc)"""
     z = abs(x)
@@ -33,6 +52,9 @@ def erfc(x):
     r = t * math.exp(-z * z - 1.26551223 + t * h)
     return r if not(x<0) else 2.0 - r 
 
+#timeit.timeit(lambda: erfc(0.9) , number=10000)/10000
+
+@njit(types.f8(types.f8))
 def erfcinv(y):
     if y >= 2: return -inf
     if y < 0: raise ValueError('argument must be nonnegative')
@@ -45,59 +67,104 @@ def erfcinv(y):
         x += err / (1.12837916709551257 * math.exp(-(x**2)) - x * err)
     return x if (y < 1) else -x
 
-def compute_margin(draw_probability, size):
-    _N = Gaussian(0.0, math.sqrt(size)*BETA)
-    return abs(_N.ppf(0.5-draw_probability/2))
+#timeit.timeit(lambda: erfcinv(0.9) , number=10000)/10000
 
+@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8))
+def tau_pi(mu,sigma):
+    if sigma > 0.0:
+        pi_ = sigma ** -2
+        tau_ = pi_ * mu
+    elif (sigma + 1e-5) < 0.0:
+        raise ValueError(" sigma should be greater than 0 ")
+    else:
+        pi_ = inf
+        tau_ = inf
+    return tau_, pi_
+
+@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8))
+def mu_sigma(tau_,pi_):
+    if pi_ > 0.0:
+        sigma = math.sqrt(1/pi_)
+        mu = tau_ / pi_
+    elif pi_ + 1e-5 < 0.0:
+        raise ValueError(" sigma should be greater than 0 ")
+    else:
+        sigma = inf 
+        mu = 0.0
+    return mu, sigma
+        
+#timeit.timeit(lambda: mu_sigma(1.0,2.0) , number=10000)/10000
+
+@njit(types.f8(types.f8,types.f8,types.f8))
+def cdf(x, mu, sigma):
+    z = -(x - mu) / (sigma * sqrt2)
+    return (0.5 * erfc(z))
+
+@njit(types.f8(types.f8,types.f8,types.f8))
+def pdf(x, mu, sigma):
+    normalizer = (sqrt2pi * sigma)**-1
+    functional = math.exp( -((x - mu)**2) / (2*sigma**2) ) 
+    return normalizer * functional
+
+@njit(types.f8(types.f8,types.f8,types.f8))
+def ppf(p, mu, sigma):
+    return mu - sigma * sqrt2  * erfcinv(2 * p)
+
+@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8,types.f8,types.f8))
+def trunc(mu, sigma, margin, tie):
+    if not tie:
+        _alpha = (margin-mu)/sigma
+        v = pdf(-_alpha,0,1) / cdf(-_alpha,0,1)
+        w = v * (v + (-_alpha))
+    else:
+        _alpha = (-margin-mu)/sigma
+        _beta  = ( margin-mu)/sigma
+        v = (pdf(_alpha,0,1)-pdf(_beta,0,1))/(cdf(_beta,0,1)-cdf(_alpha,0,1))
+        u = (_alpha*pdf(_alpha,0,1)-_beta*pdf(_beta,0,1))/(cdf(_beta,0,1)-cdf(_alpha,0,1))
+        w =  - ( u - v**2 ) 
+    mu_trunc = mu + sigma * v
+    sigma_trunc = sigma * math.sqrt(1-w)
+    return mu_trunc, sigma_trunc
+
+#timeit.timeit(lambda: trunc(1.0,2.0,0.0,False), number=10000)/10000
+
+
+
+@njit(types.f8(types.f8,types.f8))
+def compute_margin(p_draw, sd):
+    return abs(ppf(0.5-p_draw/2, 0.0, sd ))
+
+def max_tuple(t1, t2):
+    return max(t1[0],t2[0]), max(t1[1],t2[1])
+
+def gr_tuple(tup, threshold):
+    return (tup[0] > threshold) or (tup[1] > threshold)
+
+def sortperm(xs):
+    return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))] 
 
 
 class Gaussian(object):
-    def __init__(self,mu=0, sigma=inf, inverse=False):
-        if not inverse:
-            self.tau, self.pi = self.tau_pi(mu, sigma)
+    def __init__(self,mu=MU, sigma=SIGMA):
+        if sigma >= 0.0:
+            self.mu, self.sigma = mu, sigma
         else:
-            self.tau, self.pi = mu, sigma
-            
-    def tau_pi(self,mu,sigma):
-        if sigma < 0.: raise ValueError('sigma**2 should be greater than 0')
-        if sigma > 0.:
-            _pi = sigma**-2
-            _tau = _pi * mu
-        else:
-            _pi = inf
-            _tau = inf
-        return _tau, _pi
+            raise ValueError(" sigma should be greater than 0 ")
     
     @property
-    def mu(self):
-        return 0. if (self.pi ==inf or self.pi==0.) else self.tau / self.pi
-    @property
-    def sigma(self):
-        return math.sqrt(1 / self.pi) if self.pi else inf
-    def cdf(self, x):
-        z = -(x - self.mu) / (self.sigma * sqrt2)
-        return (0.5 * erfc(z))
-    def pdf(self, x):
-        normalizer = (sqrt2pi * self.sigma)**-1
-        functional = math.exp( -((x - self.mu)**2) / (2*self.sigma**2) ) 
-        return normalizer * functional
-    def ppf(self, p):
-        return self.mu - self.sigma * sqrt2  * erfcinv(2 * p)
-    def trunc(self, margin, tie):
-        N01 = Gaussian(0,1)
-        _alpha = (-margin-self.mu)/self.sigma
-        _beta  = ( margin-self.mu)/self.sigma
-        if not tie:
-            #t= -_alpha
-            v = N01.pdf(-_alpha) / N01.cdf(-_alpha)
-            w = v * (v + (-_alpha))
+    def tau(self):
+        if self.sigma > 0.0:
+            return self.mu * (self.sigma**-2)
         else:
-            v = (N01.pdf(_alpha)-N01.pdf(_beta))/(N01.cdf(_beta)-N01.cdf(_alpha))
-            u = (_alpha*N01.pdf(_alpha)-_beta*N01.pdf(_beta))/(N01.cdf(_beta)-N01.cdf(_alpha))
-            w =  - ( u - v**2 ) 
-        mu = self.mu + self.sigma * v
-        sigma = self.sigma* math.sqrt(1-w)
-        return Gaussian(mu, sigma)
+            return inf
+        
+    @property
+    def pi(self):
+        if self.sigma > 0.0:
+            return self.sigma**-2
+        else:
+            return inf
+    
     def __iter__(self):
         return iter((self.mu, self.sigma))
     def __repr__(self):
@@ -108,56 +175,79 @@ class Gaussian(object):
         return Gaussian(self.mu - M.mu, math.sqrt(self.sigma**2 + M.sigma**2))
     def __mul__(self, M):
         _tau, _pi = self.tau + M.tau, self.pi + M.pi
-        return Gaussian(_tau, _pi, inverse=True)        
+        mu, sigma = mu_sigma(_tau, _pi)
+        return Gaussian(mu, sigma)        
     def __truediv__(self, M):
         _tau = self.tau - M.tau; _pi = self.pi - M.pi
-        return Gaussian(_tau, _pi, inverse=True)        
+        mu, sigma = mu_sigma(_tau, _pi)
+        return Gaussian(mu, sigma)
+    def forget(self,gamma,t):
+        return Gaussian(self.mu, math.sqrt(self.sigma**2 + t*gamma**2))
     def delta(self, M):
         return abs(self.mu - M.mu) , abs(self.sigma - self.sigma) 
     def exclude(self, M):
         return Gaussian(self.mu - M.mu, math.sqrt(self.sigma**2 - M.sigma**2) )
     def isapprox(self, M, tol=1e-4):
         return (abs(self.mu - M.mu) < tol) and (abs(self.sigma - M.sigma) < tol)
-        
+    
+#timeit.timeit(lambda: Gaussian(1.0,2.0) , number=10000)/10000
+
 N01 = Gaussian(0,1)
 N00 = Gaussian(0,0)
-Nms = Gaussian(MU,SIGMA)
-Ninf = Gaussian()
+Ninf = Gaussian(0,inf)
+Nms = Gaussian(MU, SIGMA)
 
 class Rating(object):
-    def __init__(self, N=Nms, beta=BETA, gamma=GAMMA, name=""):
-        self.N = N
+    def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, draw=Ninf):
+        self.N = Gaussian(mu,sigma)
         self.beta = beta
         self.gamma = gamma
-        self.name = name
-    
-    def forget(self, t, max_sigma=SIGMA):
-        _sigma = min(math.sqrt(self.N.sigma**2 + (self.gamma*t)**2), max_sigma)
-        return Rating(Gaussian(self.N.mu, _sigma),self.beta,self.gamma,self.name)
-
+        self.draw = draw
+ 
     def performance(self):
         return Gaussian(self.N.mu, math.sqrt(self.N.sigma**2 + self.beta**2))
-    
-    def copy(self):
-        return Rating(self.N, self.beta, self.gamma, self.name)
-
     def __repr__(self):
-        return 'Rating(mu=%.3f, sigma=%.3f)' % (self.N.mu, self.N.sigma)
-
+        return 'Rating(mu=%.3f, sigma=%.3f)' % (self.N.mu, self.N.sigma) 
+ 
 class team_messages(object):
-    def __init__(self, prior=Ninf, likelihood_lose=Ninf, likelihood_win=Ninf):
+    def __init__(self, prior=Ninf, likelihood_lose=Ninf, likelihood_win=Ninf, likelihood_draw=Ninf):
         self.prior = prior
         self.likelihood_lose = likelihood_lose
         self.likelihood_win = likelihood_win
+        self.likelihood_draw = likelihood_draw
+        
     @property
     def p(self):
-        return self.prior*self.likelihood_lose*self.likelihood_win
+        return self.prior*self.likelihood_lose*self.likelihood_win*self.likelihood_draw
     @property
     def posterior_win(self):
-        return self.prior*self.likelihood_lose
+        return self.prior*self.likelihood_lose*self.likelihood_draw
     @property
     def posterior_lose(self):
-        return self.prior*self.likelihood_win
+        return self.prior*self.likelihood_win*self.likelihood_draw
+    @property
+    def likelihood(self):
+        return self.likelihood_win*self.likelihood_lose*self.likelihood_draw
+
+class draw_messages(object):
+    def __init__(self,prior = Ninf, prior_team = Ninf, likelihood_lose = Ninf, likelihood_win = Ninf):
+        self.prior = prior
+        self.prior_team = prior_team
+        self.likelihood_lose = likelihood_lose
+        self.likelihood_win = likelihood_win
+    
+    @property
+    def p(self):
+        return self.prior_team*self.likelihood_lose*self.likelihood_win
+    
+    @property
+    def posterior_win(self):
+        return self.prior_team*self.likelihood_lose
+    
+    @property
+    def posterior_lose(self):
+        return self.prior_team*self.likelihood_win
+    
     @property
     def likelihood(self):
         return self.likelihood_win*self.likelihood_lose
@@ -171,93 +261,199 @@ class diff_messages(object):
         return self.prior*self.likelihood
 
 class Game(object):
-    def __init__(self, teams, result, draw_proba=0.0):
-        if len(teams) != len(result):
-           raise ValueError("len(teams) != len(result)")
-        if (0.0 > draw_proba) or (1.0 <= draw_proba):
-           raise ValueError ("0.0 <= proba < 1.0")
-        margin = draw_proba and compute_margin(draw_proba,sum([len(team) for team in teams]))
+    def __init__(self, teams, result, p_draw=0.0):
+        if len(teams) != len(result): raise ValueError("len(teams) != len(result)")
+        if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
+    
         self.teams = teams
         self.result = result
-        self.margin = margin
+        self.p_draw = p_draw
         self.likelihoods = []
         self.evidence = 0.0
         self.compute_likelihoods()
         
     def __len__(self):
         return len(self.result)
+    
     def size(self):
         return [len(team) for team in self.teams]
+    
     def performance(self,i):
         res = N00
         for r in self.teams[i]:
             res += r.performance()
         return res
-    def likelihood_teams(self):
-        r = self.result
+    
+    def likelihood_analitico(self):
+        g = self
+        r = g.result
         o = sortperm(r) 
-        t = [team_messages(self.performance(o[e]),Ninf, Ninf) for e in range(len(self))]
-        d = [diff_messages(t[e].prior - t[e+1].prior, Ninf) for e in range(len(self)-1)]
+        t = [g.performance(o[e]) for e in range(len(g))]
+        d = [t[e] - t[e+1] for e in range(len(g)-1)]
+        
+        g.evidence = cdf(margin[e], d[e].mu, d[e].sigma)-cdf(-margin[e], d[e].mu, d[e].sigma) 
+        
+        def vt(t):
+            global sqrt2pi, sqrt2
+            pdf = (1 / sqrt2pi) * math.exp(- (t*t / 2))
+            cdf = 0.5*(1+math.erf(t/ sqrt2))
+            return (pdf/cdf)
+        def wt(t, v):
+            w = v * (v + t)
+            return w
+        delta = d[0].mu
+        theta_pow2 = d[0].sigma**2
+        theta = d[0].sigma
+        t = delta/theta
+        V = vt(t)
+        W = wt(t, v=V)
+        delta_div = (theta/(V+t))+delta
+        theta_div_pow2 = (1/W-1)*theta_pow2
+        def winner(mu_i, sigma_i, beta_i, delta=delta,
+                   theta_pow2=theta_pow2, delta_div=delta_div,
+                   theta_div_pow2=theta_div_pow2):
+            mu = delta_div + mu_i - delta
+            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
+                                        - sigma_i*sigma_i)
+            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
+            return Gaussian(mu=mu, sigma=sigma_analitico)
+        def looser(mu_i, sigma_i, beta_i, delta=delta,
+                   theta_pow2=theta_pow2, delta_div=delta_div,
+                   theta_div_pow2=theta_div_pow2):
+            mu = delta + mu_i - delta_div
+            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
+                                        - sigma_i*sigma_i)
+            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
+            return Gaussian(mu=mu, sigma=sigma_analitico)
+        player_winners = []
+        for j in range(len(g.teams[o[0]])):
+            player_winners.append(winner(g.teams[o[0]][j].N.mu, g.teams[o[0]][j].N.sigma, g.teams[o[0]][j].beta))
+        player_loosers = []
+        for j in range(len(g.teams[o[1]])):
+            player_loosers.append(looser(g.teams[o[1]][j].N.mu, g.teams[o[1]][j].N.sigma, g.teams[o[1]][j].beta))
+        return [player_winners ,player_loosers] if o[0]<o[1] else [player_loosers,player_winners]
+    
+    def likelihood_teams(self):
+        g = self 
+        r = g.result
+        o = sortperm(r) 
+        t = [team_messages(g.performance(o[e]),Ninf, Ninf, Ninf) for e in range(len(g))]
+        d = [diff_messages(t[e].prior - t[e+1].prior, Ninf) for e in range(len(g)-1)]
         tie = [r[o[e]]==r[o[e+1]] for e in range(len(d))]
-        self.evidence = 1.0
+        margin = [0.0 if g.p_draw==0.0 else compute_margin(g.p_draw, math.sqrt( sum([a.beta**2 for a in g.teams[o[e]]]) + sum([a.beta**2 for a in g.teams[o[e+1]]]) )) for e in range(len(d))] 
+        g.evidence = 1.0
         for e in range(len(d)):
-            self.evidence *= d[e].prior.cdf(self.margin)-d[e].prior.cdf(-self.margin) if tie[e] else 1-d[e].prior.cdf(self.margin)
+            mu, sigma = d[e].prior.mu, d[e].prior.sigma
+            g.evidence *= cdf(margin[e],mu,sigma)-cdf(-margin[e],mu,sigma) if tie[e] else 1-cdf(margin[e],mu,sigma)
         step = (inf, inf); i = 0 
         while gr_tuple(step,1e-6) and (i < 10):
             step = (0., 0.)
             for e in range(len(d)-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
-                d[e].likelihood = d[e].prior.trunc(self.margin,tie[e])/d[e].prior
+                d[e].likelihood = Gaussian(*trunc(d[e].prior.mu,d[e].prior.sigma,margin[e],tie[e]))/d[e].prior
                 likelihood_lose = t[e].posterior_win - d[e].likelihood
                 step = max_tuple(step,t[e+1].likelihood_lose.delta(likelihood_lose))
                 t[e+1].likelihood_lose = likelihood_lose
             for e in range(len(d)-1,0,-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
-                d[e].likelihood = d[e].prior.trunc(self.margin,tie[e])/d[e].prior
+                d[e].likelihood = Gaussian(*trunc(d[e].prior.mu,d[e].prior.sigma,margin[e],tie[e]))/d[e].prior
                 likelihood_win = t[e+1].posterior_lose + d[e].likelihood
                 step = max_tuple(step,t[e].likelihood_win.delta(likelihood_win))
                 t[e].likelihood_win = likelihood_win
             i += 1
         if len(d)==1:
             d[0].prior = t[0].posterior_win - t[1].posterior_lose
-            d[0].likelihood = d[0].prior.trunc(self.margin,tie[0])/d[0].prior
+            d[0].likelihood = Gaussian(*trunc(d[0].prior.mu,d[0].prior.sigma,margin[0],tie[0]))/d[0].prior
         t[0].likelihood_win = t[1].posterior_lose + d[0].likelihood
         t[-1].likelihood_lose = t[-2].posterior_win - d[-1].likelihood
-        return [ t[o[e]].likelihood for e in range(len(t))] 
+        return [ t[o[e]].likelihood for e in range(len(t)) ] 
+    
     def compute_likelihoods(self):
-        m_t_ft = self.likelihood_teams()
-        self.likelihoods = [[ m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].N) for i in range(len(self.teams[e])) ] for e in range(len(self))]
+        if len(self.teams)>2:
+            m_t_ft = self.likelihood_teams()
+            self.likelihoods = [[ m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].N) for i in range(len(self.teams[e])) ] for e in range(len(self))]
+        else:
+            self.likelihoods = self.likelihood_analitico()            
+        
     @property
     def posteriors(self):
         return [[ self.likelihoods[e][i] * self.teams[e][i].N for i in range(len(self.teams[e]))] for e in range(len(self))]
 
+#ta = [Rating(0,1),Rating(0,1),Rating(0,1)]
+#tb = [Rating(0,1),Rating(0,1),Rating(0,1)]
+#tc = [Rating(0,1),Rating(0,1),Rating(0,1)]
+#td = [Rating(0,1),Rating(0,1),Rating(0,1)]
+#time_tt = timeit.timeit(lambda: Game([ta,tb],[1,0]).posteriors, number=10000)/10000
+#ta = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
+#tb = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
+#tc = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
+#td = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
+#time_ts = timeit.timeit(lambda: ts.rate([ta,tb],[1,0]), number=10000)/10000
+
+#time_ts/time_tt
+
+class Skill(object):
+    def __init__(self, forward=Ninf, backward=Ninf, likelihood=Ninf, elapsed=0):
+        self.forward = forward
+        self.backward = backward
+        self.likelihood = likelihood
+        self.elapsed = elapsed
+
+class Agent(object):
+    def __init__(self, prior, message, last_time):
+        self.prior = prior
+        self.message = message
+        self.last_time = last_time
+    
+    def receive(self, elapsed):
+        if self.message != Ninf:
+            res = agent.message.forget(agent.prior.gamma, elapsed) 
+        else:
+            res = agent.prior.N
+        return res
+
+def clean(agents,last_time=False):
+    for a in agents:
+        agents[a].message = Ninf
+        if last_time:
+            agents[a].last_time = -inf
+
+class Item(object):
+    def __init__(self,name,likelihood):
+        self.name = name
+        self.likelihood = likelihood
+
+class Team(object):
+    def __init__(self, items, output):
+        self.items = items
+        self.output = output
+    
+class Event(object):
+    def __init__(self, teams, evidence):
+        self.teams = teams
+        self.evidence = evidence
+    
+def get_composition(events):
+    return [ [[ it.name for it in t.items] for t in e.teams] for e in events]
+
+def get_results(events):
+    return [ [t.output for t in e.teams ] for e in events]
+
+def compute_elapsed(last_time, actual_time):
+    return 0 if last_time == -inf  else ( 1 if last_time == inf else (actual_time - last_time))
 
 class Batch(object):
-    def __init__(self, events, results, time, last_time=dict() ,priors=dict()):
+    def __init__(self, composition, results, time, agents=dict(), env=Environment()):
         if len(events)!= len(results): raise ValueError("len(events)!= len(results)")
         
-        self.events = events
+        this_agents = set( [a for event in events for team in event for a in team ] )
+        elapsed = dict([ (a,  compute_elapsed(agents[a].last_time, time) ) for a in this_agents ])
+        skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
+        
+        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(le(composition[e][t])) ], results[e][t]  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
         self.results = results
         self.time = time
-        self.elapsed = dict() 
-        self.prior_forward = dict()
-        self.prior_backward = dict()
-        self.likelihoods = dict()
-        self.old_within_prior = dict()
-        self.evidences = [0 for _ in range(len(results))]
-        self.partake = dict()
-        self.agents = set( [a for event in events for team in event for a in team] )
-        for a in self.agents:
-            self.partake[a] = [e for e in range(len(events)) for team in events[e] if a in team ]
-            self.elapsed[a] = time - last_time[a] if a in last_time else 0
-            self.prior_forward[a] = priors[a].forget(self.elapsed[a]) if a in priors else Rating(Nms,BETA,GAMMA,a) 
-            self.prior_backward[a] = Ninf
-            self.likelihoods[a] = dict()
-            self.old_within_prior[a] = dict()
-            for e in self.partake[a]:
-                self.likelihoods[a][e] = Ninf
-                self.old_within_prior[a][e] = self.prior_forward[a].N
-            
+        
         self.iteration()
         self.max_step = self.step_within_prior()
     
@@ -401,14 +597,6 @@ class History(object):
             res[a] = sorted([ (t, self.partake[a][t].posterior(a)) for t in self.partake[a]])
         return res
     
-def max_tuple(t1, t2):
-    return max(t1[0],t2[0]), max(t1[1],t2[1])
-
-def gr_tuple(tup, threshold):
-    return (tup[0] > threshold) or (tup[1] > threshold)
-
-def sortperm(xs):
-    return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))] 
 
 def dict_diff(old, new):
     step = (0., 0.)
