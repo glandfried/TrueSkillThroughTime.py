@@ -32,112 +32,149 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(N00.mu,0)
         self.assertAlmostEqual(N00.sigma,0)
     def test_ppf(self):
-        self.assertAlmostEqual(ttt.N01.ppf(0.3),-0.52440044)
+        self.assertAlmostEqual(ttt.ppf(0.3,ttt.N01.mu, ttt.N01.sigma),-0.52440044)
         N23 = ttt.Gaussian(2.,3.)
-        self.assertAlmostEqual(N23.ppf(0.3),0.42679866)
+        self.assertAlmostEqual(ttt.ppf(0.3,N23.mu, N23.sigma),0.42679866)
     def test_cdf(self):
-        self.assertAlmostEqual(ttt.N01.cdf(0.3),0.617911409)
+        self.assertAlmostEqual(ttt.cdf(0.3,ttt.N01.mu,ttt.N01.sigma),0.617911409)
         N23 = ttt.Gaussian(2.,3.)
-        self.assertAlmostEqual(N23.cdf(0.3),0.28547031)
+        self.assertAlmostEqual(ttt.cdf(0.3,N23.mu,N23.sigma),0.28547031)
     def test_pdf(self):    
-        self.assertAlmostEqual(ttt.N01.pdf(0.3),0.38138781)
+        self.assertAlmostEqual(ttt.pdf(0.3,ttt.N01.mu,ttt.N01.sigma),0.38138781)
         N23 = ttt.Gaussian(2.,3.)
-        self.assertAlmostEqual(N23.pdf(0.3),0.11325579)
+        self.assertAlmostEqual(ttt.pdf(0.3,N23.mu,N23.sigma),0.11325579)
     def test_compute_margin(self):
-        self.assertAlmostEqual(ttt.compute_margin(0.25,2),1.8776005988)
-        self.assertAlmostEqual(ttt.compute_margin(0.25,3),2.29958170)
-        self.assertAlmostEqual(ttt.compute_margin(0.0,3),2.7134875810435737e-07)
-        self.assertAlmostEqual(ttt.compute_margin(1.0,3),math.inf)
+        self.assertAlmostEqual(ttt.compute_margin(0.25,math.sqrt(2)*25.0/6),1.8776005988)
+        self.assertAlmostEqual(ttt.compute_margin(0.25,math.sqrt(3)*25.0/6),2.29958170)
+        self.assertAlmostEqual(ttt.compute_margin(0.0,math.sqrt(3)*25.0/6),2.7134875810435737e-07)
+        self.assertAlmostEqual(ttt.compute_margin(1.0,math.sqrt(3)*25.0/6),math.inf)
     def test_trunc(self):
-        mu, sigma = ttt.Gaussian(0,1).trunc(0.,False)
+        mu, sigma = ttt.trunc(*ttt.Gaussian(0,1),0.,False)
         self.assertAlmostEqual((mu,sigma) ,(0.7978845368663289,0.6028103066716792) )
-        mu, sigma = ttt.Gaussian(0.,math.sqrt(2)*(25/6) ).trunc(1.8776005988,True)
+        mu, sigma = ttt.trunc(*ttt.Gaussian(0.,math.sqrt(2)*(25/6) ),1.8776005988,True)
         self.assertAlmostEqual(mu,0.0) 
         self.assertAlmostEqual(sigma,1.07670, places=4)
-        mu, sigma = ttt.Gaussian(12.,math.sqrt(2)*(25/6)).trunc(1.8776005988,True)
+        mu, sigma = ttt.trunc(*ttt.Gaussian(12.,math.sqrt(2)*(25/6)),1.8776005988,True)
         self.assertAlmostEqual(mu,0.3900999, places=5) 
         self.assertAlmostEqual(sigma,1.034401, places=5)
+    def gaussian(self):
+        N, M = ttt.Gaussian(25.0, 25.0/3), ttt.Gaussian(0.0, 1.0)
+        mu, sigma = M/N
+        self.assertAlmostEqual(mu,-0.365, places=3) 
+        self.assertAlmostEqual(sigma, 1.007, places=3) 
+        mu, sigma = N*M
+        self.assertAlmostEqual(mu,0.355, places=3) 
+        self.assertAlmostEqual(sigma,0.993, places=3) 
+        mu, sigma = N+M
+        self.assertAlmostEqual(mu,25.000, places=3) 
+        self.assertAlmostEqual(sigma,8.393, places=3) 
+        mu, sigma = N - ttt.Gaussian(1.0, 1.0)
+        self.assertAlmostEqual(mu,24.000, places=3) 
+        self.assertAlmostEqual(sigma,8.393, places=3) 
     def test_1vs1(self):
-        ta = [ttt.Rating()]
-        tb = [ttt.Rating()]
-        g = ttt.Game([ta,tb],[1,0])
+        ta = [ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]
+        tb = [ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]
+        g = ttt.Game([ta,tb],[1,0], 0.0)
         [a], [b] = g.posteriors
         self.assertAlmostEqual(a.mu,20.79477925612302,4)
         self.assertAlmostEqual(b.mu,29.20522074387697,4)
         self.assertAlmostEqual(a.sigma,7.194481422570443 ,places=4)
         
-        g = ttt.Game([[ttt.Rating(ttt.Gaussian(29,1))] ,[ttt.Rating()]], [1,0], 0.0)
+        g = ttt.Game([[ttt.Rating(29.,1.,25.0/6)] ,[ttt.Rating(25.0,25.0/3,25.0/6)]], [1,0])
         [a], [b] = g.posteriors
         self.assertAlmostEqual(a.mu,28.896, places=2)
         self.assertAlmostEqual(a.sigma,0.996, places=2)
         self.assertAlmostEqual(b.mu,32.189, places=2)
         self.assertAlmostEqual(b.sigma,6.062, places=2)
     def test_1vs1vs1(self):
-        [a], [b], [c] = ttt.Game([[ttt.Rating()],[ttt.Rating()],[ttt.Rating()]], [1,0,2]).posteriors
+        [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [1,0,2]).posteriors
         self.assertAlmostEqual(a.mu,25.000000,5)
         self.assertAlmostEqual(a.sigma,6.238469796,5)
         self.assertAlmostEqual(b.mu,31.3113582213,5)
         self.assertAlmostEqual(b.sigma,6.69881865,5)
         self.assertAlmostEqual(c.mu,18.6886417787,5)
     
-        [a], [b], [c] = ttt.Game([[ttt.Rating()],[ttt.Rating()],[ttt.Rating()]], [1,0,2],0.5).posteriors
-        self.assertAlmostEqual(a.mu,25.000000,4)
-        self.assertAlmostEqual(a.sigma,6.48760,4)
-        self.assertAlmostEqual(b.mu,29.19950,4)
-        self.assertAlmostEqual(b.sigma,7.00947,4)
-        self.assertAlmostEqual(c.mu,20.80049,4)
+        [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [1,0,2],0.5).posteriors
+        self.assertAlmostEqual(a.mu,25.000,3)
+        self.assertAlmostEqual(a.sigma,6.093,3)
+        self.assertAlmostEqual(b.mu,33.379,3)
+        self.assertAlmostEqual(b.sigma,6.484,3)
+        self.assertAlmostEqual(c.mu,16.621,3)
     def test_1vs1_draw(self):
-        [a], [b] = ttt.Game([[ttt.Rating()],[ttt.Rating()]], [0,0], 0.25).posteriors
+        [a], [b] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [0,0], 0.25).posteriors
         self.assertAlmostEqual(a.mu,25.000,2)
         self.assertAlmostEqual(a.sigma,6.469,2)
         self.assertAlmostEqual(b.mu,25.000,2)
         self.assertAlmostEqual(b.sigma,6.469,2)
-        ta = [ttt.Rating(ttt.Gaussian(25.,3.))]
-        tb = [ttt.Rating(ttt.Gaussian(29.,2.))]
+        
+        ta = [ttt.Rating(25.,3.,25.0/6,25.0/300)]
+        tb = [ttt.Rating(29.,2.,25.0/6,25.0/300)]
         [a], [b] = ttt.Game([ta,tb], [0,0], 0.25).posteriors
         self.assertAlmostEqual(a.mu,25.736,2)
         self.assertAlmostEqual(a.sigma,2.710,2)
         self.assertAlmostEqual(b.mu,28.672,2)
         self.assertAlmostEqual(b.sigma,1.916,2)
+        
+        [b], [a] = ttt.Game([tb,ta], [0,0], 0.25).posteriors
+        self.assertAlmostEqual(a.mu,25.736,2)
+        self.assertAlmostEqual(a.sigma,2.710,2)
+        self.assertAlmostEqual(b.mu,28.672,2)
+        self.assertAlmostEqual(b.sigma,1.916,2)
     def test_1vs1vs1_draw(self):
-        [a], [b], [c] = ttt.Game([[ttt.Rating()],[ttt.Rating()],[ttt.Rating()]], [0,0,0],0.25).posteriors
-        self.assertAlmostEqual(a.mu,25.000,2)
-        self.assertAlmostEqual(a.sigma,5.746947,4)
-        self.assertAlmostEqual(b.mu,25.000,2)
-        self.assertAlmostEqual(b.sigma,5.714755,4)
+        [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [0,0,0],0.25).posteriors
+        self.assertAlmostEqual(a.mu,25.000,3)
+        self.assertAlmostEqual(a.sigma,5.729,3)
+        self.assertAlmostEqual(b.mu,25.000,3)
+        self.assertAlmostEqual(b.sigma,5.707,3)
 
-        ta = [ttt.Rating(ttt.Gaussian(25.,3.))]
-        tb = [ttt.Rating(ttt.Gaussian(25.,3.))]
-        tc = [ttt.Rating(ttt.Gaussian(29.,2.))]
+        ta = [ttt.Rating(25.,3.,25.0/6,25.0/300)]
+        tb = [ttt.Rating(25.,3.,25.0/6,25.0/300)]
+        tc = [ttt.Rating(29.,2.,25.0/6,25.0/300)]
         [a], [b], [c] = ttt.Game([ta,tb,tc], [0,0,0],0.25).posteriors
-        self.assertAlmostEqual(a.mu,25.473,2)
-        self.assertAlmostEqual(a.sigma,2.645,2)
-        self.assertAlmostEqual(b.mu,25.505,2)
-        self.assertAlmostEqual(b.sigma,2.631,2)
-        self.assertAlmostEqual(c.mu,28.565,2)
-        self.assertAlmostEqual(c.sigma,1.888,2)
+        self.assertAlmostEqual(a.mu,25.489,3)
+        self.assertAlmostEqual(a.sigma,2.638,3)
+        self.assertAlmostEqual(b.mu,25.511,3)
+        self.assertAlmostEqual(b.sigma,2.629,3)
+        self.assertAlmostEqual(c.mu,28.556,3)
+        self.assertAlmostEqual(c.sigma,1.886,3)
     def test_NvsN_Draw(self):
-        ta = [ttt.Rating(ttt.Gaussian(15.,1.)),ttt.Rating(ttt.Gaussian(15.,1.))]
-        tb = [ttt.Rating(ttt.Gaussian(30.,2.))]
+        ta = [ttt.Rating(15.,1.,25.0/6,25.0/300),ttt.Rating(15.,1.,25.0/6,25.0/300)]
+        tb = [ttt.Rating(30.,2.,25.0/6,25.0/300)]
         [a,b], [c] = ttt.Game([ta,tb], [0,0], 0.25).posteriors
-        self.assertAlmostEqual(a.mu,15.000,2)
+        self.assertAlmostEqual(a.mu,15.000,3)
         self.assertAlmostEqual(a.sigma,0.9916,3)
-        self.assertAlmostEqual(b.mu,15.000,2)
+        self.assertAlmostEqual(b.mu,15.000,3)
         self.assertAlmostEqual(b.sigma,0.9916,3)
-        self.assertAlmostEqual(c.mu,30.000,2)
-        self.assertAlmostEqual(c.sigma,1.9320,2)
+        self.assertAlmostEqual(c.mu,30.000,3)
+        self.assertAlmostEqual(c.sigma,1.9320,3)
+    def test_NvsNvsN_mixt(self):
+        ta = [ttt.Rating(12.,3.,25.0/6,25.0/300)
+             ,ttt.Rating(18.,3.,25.0/6,25.0/300)]
+        tb = [ttt.Rating(30.,3.,25.0/6,25.0/300)]
+        tc = [ttt.Rating(14.,3.,25.0/6,25.0/300)
+             ,ttt.Rating(16.,3.,25.0/6,25.0/300)]
+        [a,b], [c], [d,e]  = ttt.Game([ta,tb, tc], [0,1,1], 0.25).posteriors
+        self.assertAlmostEqual(a.mu,13.051,3)
+        self.assertAlmostEqual(a.sigma,2.864,3)
+        self.assertAlmostEqual(b.mu,19.051,3)
+        self.assertAlmostEqual(b.sigma,2.864,3)
+        self.assertAlmostEqual(c.mu,29.292,3)
+        self.assertAlmostEqual(c.sigma,2.764,3)
+        self.assertAlmostEqual(d.mu,13.658,3)
+        self.assertAlmostEqual(d.sigma,2.813,3)
+        self.assertAlmostEqual(e.mu,15.658,3)
+        self.assertAlmostEqual(e.sigma,2.813,3)
     def test_evidence_1vs1(self):
-        ta = [ttt.Rating(ttt.Gaussian(25.,1e-7))]
-        tb = [ttt.Rating(ttt.Gaussian(25.,1e-7))]
+        ta = [ttt.Rating(25.,1e-7,25.0/6,25.0/300)]
+        tb = [ttt.Rating(25.,1e-7,25.0/6,25.0/300)]
         g = ttt.Game([ta,tb], [0,0], 0.25)
         self.assertAlmostEqual(g.evidence,0.25,3)
         g = ttt.Game([ta,tb], [0,1], 0.25)
         self.assertAlmostEqual(g.evidence,0.375,3)
-
     def test_1vs1vs1_margin_0(self):
-        ta = [ttt.Rating(ttt.Gaussian(25.,1e-7))]
-        tb = [ttt.Rating(ttt.Gaussian(25.,1e-7))]
-        tc = [ttt.Rating(ttt.Gaussian(25.,1e-7))]
+        ta = [ttt.Rating(25.,1e-7,25.0/6,25.0/300)]
+        tb = [ttt.Rating(25.,1e-7,25.0/6,25.0/300)]
+        tc = [ttt.Rating(25.,1e-7,25.0/6,25.0/300)]
         
         g_abc = ttt.Game([ta,tb,tc], [1,2,3], 0.)
         g_acb = ttt.Game([ta,tb,tc], [1,3,2], 0.)
@@ -152,11 +189,22 @@ class tests(unittest.TestCase):
         proba += g_bac.evidence
         proba += g_bca.evidence
         proba += g_cab.evidence
-        proba += g_cba.evidence            
+        proba += g_cba.evidence
+        
         print("Corregir la evidencia multiequipos para que sume 1")
         self.assertAlmostEqual(proba, 1.49999991)
-    def test_batch_one_event_each(self):
-        b = ttt.Batch([ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ], [[0,1],[1,0],[0,1]], 2)
+    def test_forget(self):
+        gamma = 0.15*25.0/3
+        N = ttt.Gaussian(25.,1e-7)
+        _, sigma = N.forget(gamma,5)
+        self.assertAlmostEqual(sigma, math.sqrt(5*gamma**2))
+        _, sigma = N.forget(gamma,1)
+        self.assertAlmostEqual(sigma, math.sqrt(1*gamma**2))
+    def test_one_event_each(self):
+        agents = dict()
+        for k in ["a", "b", "c", "d", "e", "f"]:
+            agents[k] = ttt.Agent(ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
+        b = ttt.Batch(composition=[ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ], results= [[0,1],[1,0],[0,1]], time = 0, agents=agents)
         post = b.posteriors()
         self.assertAlmostEqual(post["a"].mu,29.205,3)
         self.assertAlmostEqual(post["a"].sigma,7.194,3)
@@ -165,25 +213,28 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(post["b"].sigma,7.194,3)
         self.assertAlmostEqual(post["c"].mu,20.795,3)
         self.assertAlmostEqual(post["c"].sigma,7.194,3)
-        self.assertEqual(b.convergence(),0)
+        self.assertEqual(b.convergence(),1)
     def test_batch_same_strength(self):
-        b = ttt.Batch([ [["aa"],["b"]], [["aa"],["c"]] , [["b"],["c"]] ], [[0,1],[1,0],[0,1]], 2)
+        agents = dict()
+        for k in ["a", "b", "c", "d", "e", "f"]:
+            agents[k] = ttt.Agent(ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
+        b = ttt.Batch([ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ], [[0,1],[1,0],[0,1]], 2, agents)
         post = b.posteriors()
-        self.assertAlmostEqual(post["aa"].mu,24.96097,3)
-        self.assertAlmostEqual(post["aa"].sigma,6.299,3)
+        self.assertAlmostEqual(post["a"].mu,24.96097,3)
+        self.assertAlmostEqual(post["a"].sigma,6.299,3)
         self.assertAlmostEqual(post["b"].mu,27.09559,3)
         self.assertAlmostEqual(post["b"].sigma,6.01033,3)
         self.assertAlmostEqual(post["c"].mu,24.88968,3)
         self.assertAlmostEqual(post["c"].sigma,5.86631,3)
         self.assertEqual(b.convergence()>0, True)    
         post = b.posteriors()
-        self.assertAlmostEqual(post["aa"].mu,25.000,3)
-        self.assertAlmostEqual(post["aa"].sigma,5.419,3)
+        self.assertAlmostEqual(post["a"].mu,25.000,3)
+        self.assertAlmostEqual(post["a"].sigma,5.419,3)
         self.assertAlmostEqual(post["b"].mu,25.000,3)
         self.assertAlmostEqual(post["b"].sigma,5.419,3)
         self.assertAlmostEqual(post["c"].mu,25.000,3)
         self.assertAlmostEqual(post["c"].sigma,5.419,3)
-
+if False:
     def test_history_init(self):
         events = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
         results = [[0,1],[1,0],[0,1]]

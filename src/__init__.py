@@ -111,7 +111,7 @@ def ppf(p, mu, sigma):
     return mu - sigma * sqrt2  * erfcinv(2 * p)
 
 @njit(types.UniTuple(types.f8, 2)(types.f8,types.f8,types.f8,types.f8))
-def trunc(mu, sigma, margin, tie):
+def v_w(mu, sigma, margin,tie):
     if not tie:
         _alpha = (margin-mu)/sigma
         v = pdf(-_alpha,0,1) / cdf(-_alpha,0,1)
@@ -122,6 +122,11 @@ def trunc(mu, sigma, margin, tie):
         v = (pdf(_alpha,0,1)-pdf(_beta,0,1))/(cdf(_beta,0,1)-cdf(_alpha,0,1))
         u = (_alpha*pdf(_alpha,0,1)-_beta*pdf(_beta,0,1))/(cdf(_beta,0,1)-cdf(_alpha,0,1))
         w =  - ( u - v**2 ) 
+    return v, w
+
+@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8,types.f8,types.f8))
+def trunc(mu, sigma, margin, tie):
+    v, w = v_w(mu, sigma, margin, tie)
     mu_trunc = mu + sigma * v
     sigma_trunc = sigma * math.sqrt(1-w)
     return mu_trunc, sigma_trunc
@@ -143,6 +148,11 @@ def gr_tuple(tup, threshold):
 def sortperm(xs):
     return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))] 
 
+def dict_diff(old, new):
+    step = (0., 0.)
+    for a in old:
+        step = max_tuple(step, old[a].delta(new[a]))
+    return step
 
 class Gaussian(object):
     def __init__(self,mu=MU, sigma=SIGMA):
@@ -203,12 +213,11 @@ class Rating(object):
         self.beta = beta
         self.gamma = gamma
         self.draw = draw
- 
     def performance(self):
         return Gaussian(self.N.mu, math.sqrt(self.N.sigma**2 + self.beta**2))
     def __repr__(self):
         return 'Rating(mu=%.3f, sigma=%.3f)' % (self.N.mu, self.N.sigma) 
- 
+
 class team_messages(object):
     def __init__(self, prior=Ninf, likelihood_lose=Ninf, likelihood_win=Ninf, likelihood_draw=Ninf):
         self.prior = prior
@@ -264,7 +273,7 @@ class Game(object):
     def __init__(self, teams, result, p_draw=0.0):
         if len(teams) != len(result): raise ValueError("len(teams) != len(result)")
         if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
-    
+        
         self.teams = teams
         self.result = result
         self.p_draw = p_draw
@@ -280,60 +289,11 @@ class Game(object):
     
     def performance(self,i):
         res = N00
-        for r in self.teams[i]:
-            res += r.performance()
+        for rating in self.teams[i]:
+            res += rating.performance()
         return res
     
-    def likelihood_analitico(self):
-        g = self
-        r = g.result
-        o = sortperm(r) 
-        t = [g.performance(o[e]) for e in range(len(g))]
-        d = [t[e] - t[e+1] for e in range(len(g)-1)]
-        
-        g.evidence = cdf(margin[e], d[e].mu, d[e].sigma)-cdf(-margin[e], d[e].mu, d[e].sigma) 
-        
-        def vt(t):
-            global sqrt2pi, sqrt2
-            pdf = (1 / sqrt2pi) * math.exp(- (t*t / 2))
-            cdf = 0.5*(1+math.erf(t/ sqrt2))
-            return (pdf/cdf)
-        def wt(t, v):
-            w = v * (v + t)
-            return w
-        delta = d[0].mu
-        theta_pow2 = d[0].sigma**2
-        theta = d[0].sigma
-        t = delta/theta
-        V = vt(t)
-        W = wt(t, v=V)
-        delta_div = (theta/(V+t))+delta
-        theta_div_pow2 = (1/W-1)*theta_pow2
-        def winner(mu_i, sigma_i, beta_i, delta=delta,
-                   theta_pow2=theta_pow2, delta_div=delta_div,
-                   theta_div_pow2=theta_div_pow2):
-            mu = delta_div + mu_i - delta
-            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
-                                        - sigma_i*sigma_i)
-            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
-            return Gaussian(mu=mu, sigma=sigma_analitico)
-        def looser(mu_i, sigma_i, beta_i, delta=delta,
-                   theta_pow2=theta_pow2, delta_div=delta_div,
-                   theta_div_pow2=theta_div_pow2):
-            mu = delta + mu_i - delta_div
-            sigma_analitico = math.sqrt(theta_div_pow2 + theta_pow2
-                                        - sigma_i*sigma_i)
-            #return Rating(mu=mu, sigma=sigma_analitico, beta=beta_i)
-            return Gaussian(mu=mu, sigma=sigma_analitico)
-        player_winners = []
-        for j in range(len(g.teams[o[0]])):
-            player_winners.append(winner(g.teams[o[0]][j].N.mu, g.teams[o[0]][j].N.sigma, g.teams[o[0]][j].beta))
-        player_loosers = []
-        for j in range(len(g.teams[o[1]])):
-            player_loosers.append(looser(g.teams[o[1]][j].N.mu, g.teams[o[1]][j].N.sigma, g.teams[o[1]][j].beta))
-        return [player_winners ,player_loosers] if o[0]<o[1] else [player_loosers,player_winners]
-    
-    def likelihood_teams(self):
+    def graphical_model(self):
         g = self 
         r = g.result
         o = sortperm(r) 
@@ -345,6 +305,29 @@ class Game(object):
         for e in range(len(d)):
             mu, sigma = d[e].prior.mu, d[e].prior.sigma
             g.evidence *= cdf(margin[e],mu,sigma)-cdf(-margin[e],mu,sigma) if tie[e] else 1-cdf(margin[e],mu,sigma)
+        return o, t, d, tie, margin
+    
+    def likelihood_analitico(self):
+        g = self
+        o, t, d, tie, margin = g.graphical_model()
+        d = d[0].prior
+        mu_trunc, sigma_trunc =  trunc(d.mu, d.sigma, margin[0], tie[0])
+        delta_div = (d.sigma**2*mu_trunc - sigma_trunc**2*d.mu)/(d.sigma**2-sigma_trunc**2)
+        theta_div_pow2 = (sigma_trunc**2*d.sigma**2)/(d.sigma**2 - sigma_trunc**2)
+        res = []
+        for i in range(len(t)):
+            team = []
+            for j in range(len(g.teams[o[i]])):
+                mu = g.teams[o[i]][j].N.mu + ( delta_div - d.mu)*(-1)**(i==1)
+                sigma_analitico = math.sqrt(theta_div_pow2 + d.sigma**2
+                                            - g.teams[o[i]][j].N.sigma**2)
+                team.append(Gaussian(mu,sigma_analitico))
+            res.append(team)
+        return (res[0],res[1]) if o[0]<o[1] else (res[1],res[0])
+    
+    def likelihood_teams(self):
+        g = self 
+        o, t, d, tie, margin = g.graphical_model()
         step = (inf, inf); i = 0 
         while gr_tuple(step,1e-6) and (i < 10):
             step = (0., 0.)
@@ -389,7 +372,6 @@ class Game(object):
 #tc = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
 #td = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
 #time_ts = timeit.timeit(lambda: ts.rate([ta,tb],[1,0]), number=10000)/10000
-
 #time_ts/time_tt
 
 class Skill(object):
@@ -407,9 +389,9 @@ class Agent(object):
     
     def receive(self, elapsed):
         if self.message != Ninf:
-            res = agent.message.forget(agent.prior.gamma, elapsed) 
+            res = self.message.forget(self.prior.gamma, elapsed) 
         else:
-            res = agent.prior.N
+            res = self.prior.N
         return res
 
 def clean(agents,last_time=False):
@@ -427,12 +409,20 @@ class Team(object):
     def __init__(self, items, output):
         self.items = items
         self.output = output
-    
+
 class Event(object):
     def __init__(self, teams, evidence):
         self.teams = teams
         self.evidence = evidence
-    
+    def __repr__(self):
+        return "Event({}, {})".format(self.names,self.result)
+    @property
+    def names(self):
+        return [ [item.name for item in team.items] for team in self.teams]
+    @property
+    def result(self):
+        return [ team.output for team in self.teams]
+
 def get_composition(events):
     return [ [[ it.name for it in t.items] for t in e.teams] for e in events]
 
@@ -443,166 +433,172 @@ def compute_elapsed(last_time, actual_time):
     return 0 if last_time == -inf  else ( 1 if last_time == inf else (actual_time - last_time))
 
 class Batch(object):
-    def __init__(self, composition, results, time, agents=dict(), env=Environment()):
-        if len(events)!= len(results): raise ValueError("len(events)!= len(results)")
+    def __init__(self, composition, results, time, agents, env=Environment()):
+        if len(composition)!= len(results): raise ValueError("len(composition)!= len(results)")
         
-        this_agents = set( [a for event in events for team in event for a in team ] )
+        this_agents = set( [a for teams in composition for team in teams for a in team ] )
         elapsed = dict([ (a,  compute_elapsed(agents[a].last_time, time) ) for a in this_agents ])
-        skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
         
-        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(le(composition[e][t])) ], results[e][t]  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
-        self.results = results
+        self.skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
+        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t]  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
         self.time = time
-        
+        self.agents = agents
         self.iteration()
-        self.max_step = self.step_within_prior()
+        
     
     def __repr__(self):
-        return "Batch(time={}, events={}, results={})".format(self.time,self.events,self.results)
+        return "Batch(time={}, events={})".format(self.time,self.events)
     def __len__(self):
-        return len(self.results)
-    def likelihood(self, agent):
-        res = Ninf
-        for k in self.likelihoods[agent]:
-            res *= self.likelihoods[agent][k]
-        return res
+        return len(self.events)
+    def add_events(self, composition, results):
+        b=self
+        this_agents = set( [a for teams in composition for team in teams for a in team ] )
+        for a in this_agents:
+            elapsed = compute_elapsed(b.agents[a].last_time , b.time )  
+            if a in b.skills:
+                b.skills[a] = Skill(b.agents[a].receive(elapsed) ,Ninf ,Ninf , elapsed)
+            else:
+                b.skills[a].elapsed = elapsed
+                b.skills[a].forward = b.agents[a].receive(elapsed)
+        _from = length(b)+1
+        for e in range(len(composition)):
+            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t]) for t in range(len(composition[e])) ] , 0.0)
+            b.events.append(event)
+        b.iteration(_from)
     def posterior(self, agent):
-        return self.likelihood(agent)*self.prior_backward[agent]*self.prior_forward[agent].N   
+        return self.skills[agent].likelihood*self.skills[agent].backward*self.skills[agent].forward
     def posteriors(self):
         res = dict()
-        for a in self.agents:
+        for a in self.skills:
             res[a] = self.posterior(a)
         return res
-    def within_prior(self, agent, k):
-        res = self.prior_forward[agent].copy()
-        res.N = self.posterior(agent)/self.likelihoods[agent][k]
+    def within_prior(self, item):
+        prior = self.agents[item.name].prior
+        mu, sigma = self.posterior(item.name)/item.likelihood
+        res = Rating(mu, sigma, prior.beta,prior.gamma)
         return res
-    def within_priors(self, k):
-        return [[self.within_prior(a, k) for a in team] for team in self.events[k]]
-    def iteration(self):
-        for e in range(len(self)):
-            _priors = self.within_priors(e)
-            teams = self.events[e]
-                    
-            for t in range(len(teams)):
-                for j in range(len(teams[t])):
-                    self.old_within_prior[teams[t][j]][e] = _priors[t][j].N
-            
-            g = Game(_priors, self.results[e])
-            
-            for t in range(len(teams)):
-                for j in range(len(teams[t])):
-                    self.likelihoods[teams[t][j]][e] = g.likelihoods[t][j] 
-            
-            self.evidences[e] = g.evidence
-    def forward_prior_out(self, agent):
-        res = self.prior_forward[agent].copy()
-        res.N *= self.likelihood(agent)
-        return res
-    def backward_prior_out(self, agent):
-        gamma = self.prior_forward[agent].gamma
-        N = self.likelihood(agent)*self.prior_backward[agent]
-        # IMPORTANTE: No usar el tope de forget ac\'a
-        return N+Gaussian(0., gamma*self.elapsed[agent] ) 
-    def step_within_prior(self):
-        step = (0.,0.)
-        for a in self.partake:
-            if len(self.partake[a]) > 0:
-                for e in self.partake[a]:
-                    
-                    step = max_tuple(step,self.old_within_prior[a][e].delta(self.within_prior(a, e).N) )
-                    
-        return step
-    def convergence(self, epsilon=EPSILON):
-        i = 0    
-        while gr_tuple(self.max_step, epsilon) and (i < 10):
+    def within_priors(self, event):
+        return [ [self.within_prior(item) for item in team.items ] for team in self.events[event].teams ]
+    def iteration(self, _from=0):
+        for e in range(_from,len(self)):
+            teams = self.within_priors(e)
+            result = self.events[e].result
+            g = Game(teams,result)
+            for (t, team) in enumerate(self.events[e].teams):
+                for (i, item) in enumerate(team.items):
+                    self.skills[item.name].likelihood = (self.skills[item.name].likelihood / item.likelihood) * g.likelihoods[t][i]
+                    item.likelihood = g.likelihoods[t][i]
+            self.events[e].evidence = g.evidence
+    def convergence(self, epsilon=1e-6, iterations = 20):
+        step, i = (inf, inf), 0
+        while gr_tuple(step, epsilon) and (i < iterations):
+            old = self.posteriors().copy()
             self.iteration()
-            self.max_step = self.step_within_prior()
+            step = dict_diff(old, self.posteriors())
             i += 1
         return i
-    def new_backward_info(self, backward_message):
-        for a in self.agents:
-            self.prior_backward[a] = backward_message[a] if a in backward_message else Ninf
-        self.max_step = (inf, inf)
-        return self.convergence()
-    
-    def new_forward_info(self, forward_message):
-        for a in self.agents:
-            self.prior_forward[a] = forward_message[a].forget(self.elapsed[a]) if a in forward_message else Rating(Nms)
-        self.max_step = (inf, inf)
-        return self.convergence()
+    def forward_prior_out(self, agent):
+        return self.skills[agent].forward * self.skills[agent].likelihood
+    def backward_prior_out(self, agent):
+        N = self.skills[agent].likelihood*self.skills[agent].backward
+        return N.forget(self.agents[agent].prior.gamma, self.skills[agent].elapsed) 
+    def new_backward_info(self):
+        for a in self.skills:
+            self.skills[a].backward = self.agents[a].message
+        return self.iteration()
+    def new_forward_info(self):
+        for a in self.skills:
+            self.skills[a].forward = self.agents[a].receive(self.skills[a].elapsed) 
+        return self.iteration()
+
+#agents = dict()
+#for k in ["a", "b", "c", "d", "e", "f"]:
+    #agents[k] = Agent(Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , Ninf, -inf)
+#composition = [ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ]
+#results = [[0,1],[1,0],[0,1]]
+#batch = Batch(composition = composition, results = results, time = 0, agents = agents)
+#timeit.timeit(lambda: Batch(composition = composition, results = results, time = 0, agents = agents), number=10000)/10000
+
 class History(object):
-    def __init__(self,events,results,times=[],priors=dict()):
-        if len(events) != len(results): raise ValueError("len(events) != len(results)")
-        if (len(times) > 0) and (len(events) != len(times)): raise ValueError(" len(times) error ")
-        self.size = len(events)
-        self.times = times
-        self.priors = priors
-        self.forward_message = priors.copy()
-        self.backward_message = dict()
-        self.last_time = dict()
+    def __init__(self,composition,results,times=[],priors=dict(), env=Environment()):
+        if len(composition) != len(results): raise ValueError("len(composition) != len(results)")
+        if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
+        
+        self.size = len(composition)
         self.batches = []
-        self.agents = set( [a for event in events for team in event for a in team ] )
-        self.partake = dict()
-        for a in self.agents: self.partake[a] = dict()
-        self.trueskill(events,results)
+        self.agents = dict([ (a, Agent(priors[a] if a in priors else Rating(env.mu, env.sigma, env.beta, env.gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
+        self.env = env
+        self.time = len(times)>0
+        self.trueskill(composition,results,times)
         
     def __repr__(self):
-        return "History(Size={}, Batches={}, Agents={})".format(self.size,len(self.batches),len(self.agents))
+        return "History(Events={}, Batches={}, Agents={})".format(self.size,len(self.batches),len(self.agents))
     def __len__(self):
         return self.size
-    def trueskill(self, events, results):
-        o = sortperm(self.times) if len(self.times)>0 else [i for i in range(len(events))]
+    def trueskill(self, composition, results, times):
+        o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
         while i < len(self):
-            j, t = i+1, 1 if len(self.times) == 0 else self.times[o[i]]
-            while (len(self.times)>0) and (j < len(self)) and (self.times[o[j]] == t): j += 1
-            b = Batch([events[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.last_time, 
-            self.forward_message)        
+            j, t = i+1, 1 if len(times) == 0 else times[o[i]]
+            while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
+            b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.env)        
             self.batches.append(b)
-            for a in b.agents:
-                self.last_time[a] = t
-                self.partake[a][t] = b
-                self.forward_message[a] = b.forward_prior_out(a)
+            for a in b.skills:
+                self.agents[a].last_time = t if self.time else inf
+                self.agents[a].message = b.forward_prior_out(a)
             i = j
-            
-    def convergence(self,epsilon=EPSILON,iterations=10):
-
-        step = (inf, inf); i = 0
-        while gr_tuple(step, epsilon) and (i < iterations):
-            step = (0., 0.)
-            
-            self.backward_message=dict()
-            for j in reversed(range(len(self.batches)-1)):# j=2
-                for a in self.batches[j+1].agents:# a = "c"
-                    self.backward_message[a] = self.batches[j+1].backward_prior_out(a)
-                old = self.batches[j].posteriors().copy()
-                self.batches[j].new_backward_info(self.backward_message)
-                step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
-            
-            self.forward_message= self.priors.copy()
-            for j in range(1,len(self.batches)):#j=2
-                for a in self.batches[j-1].agents:#a = "b"
-                    self.forward_message[a] = self.batches[j-1].forward_prior_out(a)
-                old = self.batches[j].posteriors().copy()
-                self.batches[j].new_forward_info(self.forward_message)
-                step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
+    def iteration(self):
+        step = (0., 0.)
+        clean(self.agents)
+        for j in reversed(range(len(self.batches)-1)):
+            for a in self.batches[j+1].skills:
+                self.agents[a].message = self.batches[j+1].backward_prior_out(a)
+            old = self.batches[j].posteriors().copy()
+            self.batches[j].new_backward_info()
+            step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
+        clean(self.agents)
+        for j in range(1,len(self.batches)):
+            for a in self.batches[j-1].skills:
+                self.agents[a].message = self.batches[j-1].forward_prior_out(a)
+            old = self.batches[j].posteriors().copy()
+            self.batches[j].new_forward_info()
+            step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
+    
+        if len(self.batches)==1:
+            old = self.batches[0].posteriors().copy()
+            self.batches[0].convergence()
+            step = max_tuple(step, dict_diff(old, self.batches[0].posteriors()))
         
-            i += 1
-        if len(self.batches)==1: self.batches[0].convergence()
+        return step
+    def convergence(self, verbose=False):
+        step = (inf, inf); i = 0
+        while gr_tuple(step, self.env.epsilon) and (i < self.env.iterations):
+            if verbose: print("Iteration = ", i, end=" ")
+            step = self.iteration()
+            if verbose: print(", step = ", step)
+        if verbose: print("End")
         return step, i
     def learning_curves(self):
         res = dict()
-        for a in self.agents:
-            res[a] = sorted([ (t, self.partake[a][t].posterior(a)) for t in self.partake[a]])
+        for b in self.batches:
+            for a in b.skills:
+                t_p = (b.time, b.posterior(a))
+                if a in res:
+                    res[a].append(t_p)
+                else:
+                    res[a] = [t_p]
         return res
-    
+    def log_evidence(self):
+        return sum([math.log(event.evidence) for b in self.batches for event in b.events])
 
-def dict_diff(old, new):
-    step = (0., 0.)
-    for a in old:
-        step = max_tuple(step, old[a].delta(new[a]))
-    return step
+#composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+#results = [[0,1],[1,0],[0,1]]
+#env = Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
+#h = History(composition=composition, results=results, env=env)
+#h.convergence(True)
+
+#timeit.timeit(lambda: History(composition=composition, results=results, env=env), number=10000)/10000
 
 
-                
+
+
