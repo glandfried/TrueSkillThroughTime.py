@@ -234,78 +234,201 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(post["b"].sigma,5.419,3)
         self.assertAlmostEqual(post["c"].mu,25.000,3)
         self.assertAlmostEqual(post["c"].sigma,5.419,3)
-if False:
+    def test_add_events_batch(self):
+        pass
+        #agents= dict()
+        #for k in ["a", "b", "c", "d", "e", "f"]:
+            #agents[k] = ttt.Agent(ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
+        #composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        #results = [[0,1],[1,0],[0,1]]
+        #b = ttt.Batch(composition = composition, results = results, time=0, agents = agents)
+        #b.convergence()
+        #b.add_events(composition,results)
+        #self.assertEqual(len(b),6)
+        #post = b.posteriors()
+        #b.iteration(trace=True)
+        #b.iteration(trace=True)        
+        #self.assertAlmostEqual(post["a"].mu,25.000,3)
+        #self.assertAlmostEqual(post["a"].sigma,3.88,3)
+        #self.assertAlmostEqual(post["b"].mu,25.000,3)
+        #self.assertAlmostEqual(post["b"].sigma,3.88,3)
+        #self.assertAlmostEqual(post["c"].mu,25.000,3)
+        #self.assertAlmostEqual(post["c"].sigma,3.88,3)
     def test_history_init(self):
-        events = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        composition = [ [["aa"],["b"]], [["aa"],["c"]] , [["b"],["c"]] ]
         results = [[0,1],[1,0],[0,1]]
-        h = ttt.History(events, results, [1,2,3])
+        priors = dict()
+        for k in ["aa", "b", "c"]:
+            priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 0.15*25.0/3) 
+        h = ttt.History(composition, results, [1,2,3],priors)
 
-        self.assertEqual(not ttt.gr_tuple(h.batches[1].max_step, 1e-6) and  not ttt.gr_tuple(h.batches[1].max_step, 1e-6), True)
         p0 = h.batches[0].posteriors()
-        self.assertAlmostEqual(p0["a"].mu,29.205,3)
-        self.assertAlmostEqual(p0["a"].sigma,7.19448,3)
-        observed = h.batches[1].prior_forward["a"].N.sigma 
-        expected = math.sqrt((ttt.GAMMA*1)**2 +  h.batches[0].posterior("a").sigma**2)
+        self.assertAlmostEqual(p0["aa"].mu,29.205,3)
+        self.assertAlmostEqual(p0["aa"].sigma,7.19448,3)
+        observed = h.batches[1].skills["aa"].forward.sigma 
+        gamma = 0.15*25.0/3
+        expected = math.sqrt((gamma*1)**2 +  h.batches[0].posterior("aa").sigma**2)
         self.assertAlmostEqual(observed, expected)
-        observed = h.batches[1].posterior("a")
-        g = ttt.Game([[h.batches[1].prior_forward["a"]],[h.batches[1].prior_forward["c"]]],[1,0])
-        [expected], [c] = g.posteriors
+        observed = h.batches[1].posterior("aa")
+        [expected], [c] = ttt.Game(h.batches[1].within_priors(0),[1,0]).posteriors
         self.assertAlmostEqual(observed.mu, expected.mu, 3)
         self.assertAlmostEqual(observed.sigma, expected.sigma, 3)
-    def test_trueSkill_Through_Time(self):
-        events = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
-        results = [[0,1],[1,0],[0,1]]
-        h = ttt.History(events, results, [1,2,3])
-        h.batches[0].posteriors()
-        step , i = h.convergence()
-        self.assertAlmostEqual(h.batches[0].posterior("a").mu,25.0002673,5)
-        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,5.41950697,5)
-        self.assertAlmostEqual(h.batches[0].posterior("b").mu,24.9986633,5)
-        self.assertAlmostEqual(h.batches[0].posterior("b").sigma,5.41968377,5)
-        self.assertAlmostEqual(h.batches[2].posterior("b").mu,25.0029304,5)
-        self.assertAlmostEqual(h.batches[2].posterior("b").sigma,5.42076739,5)
     def test_one_batch_history(self):
         composition = [ [['aj'],['bj']],[['bj'],['cj']], [['cj'],['aj']] ]
         results = [[0,1],[0,1],[0,1]]
-        bache = [1,1,1]
-        h1 = ttt.History(composition,results, bache)
-        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,22.904,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,6.010,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.110,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.866,2)
+        times = [1,1,1]
+        priors = dict()
+        for k in ["aj", "bj", "cj"]:
+            priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 0.15*25.0/3)
+        h1 = ttt.History(composition,results, times,priors)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,22.904,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,6.010,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.110,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.866,3)
         step , i = h1.convergence()
-        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,25.000,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,5.419,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.000,2)
-        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.419,2)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").mu,25.000,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("aj").sigma,5.419,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").mu,25.000,3)
+        self.assertAlmostEqual(h1.batches[0].posterior("cj").sigma,5.419,3)
     
-        h2 = ttt.History(composition,results, [1,2,3])
-        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,22.904,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,6.012,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.110,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.867,2)
+        priors = dict()
+        for k in ["aj", "bj", "cj"]:
+            priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300)
+        h2 = ttt.History(composition,results, [1,2,3], priors)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,22.904,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,6.011,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.111,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.867,3)
         step2 , i2 = h2.convergence()
-        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,24.997,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,5.421,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.000,2)
-        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.420,2)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").mu,24.999,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("aj").sigma,5.420,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").mu,25.001,3)
+        self.assertAlmostEqual(h2.batches[2].posterior("cj").sigma,5.420,3)
+    def test_trueSkill_Through_Time(self):
+        composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        results = [[0,1],[1,0],[0,1]]
+        priors = dict()
+        for k in ["a", "b", "c"]:
+            priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300) 
+        h = ttt.History(composition , results, [], priors)
+        step , i = h.convergence()
+        self.assertEqual(h.batches[2].skills["b"].elapsed, 1)
+        self.assertEqual(h.batches[2].skills["c"].elapsed, 1)
+        
+        self.assertAlmostEqual(h.batches[0].posterior("a").mu,25.0002673,5)
+        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,5.41938162,5)
+        self.assertAlmostEqual(h.batches[0].posterior("b").mu,24.999465,5)
+        self.assertAlmostEqual(h.batches[0].posterior("b").sigma,5.419425831,5)
+        self.assertAlmostEqual(h.batches[2].posterior("b").mu,25.00053219,5)
+        self.assertAlmostEqual(h.batches[2].posterior("b").sigma,5.419696790,5)
+    def test_env_TTT(self):
+        composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        results = [[0,1],[1,0],[0,1]]
+        env = ttt.Environment(mu=25.,sigma=25.0/3, beta=25.0/6, gamma=25.0/300)
+        
+        h = ttt.History(composition=composition, results=results, env=env)
+        step , i = h.convergence()
+        self.assertEqual(h.batches[2].skills["b"].elapsed, 1)
+        self.assertEqual(h.batches[2].skills["c"].elapsed, 1)
+        self.assertAlmostEqual(h.batches[0].posterior("a").mu,25.0002673,5)
+        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,5.41938162,5)
+        self.assertAlmostEqual(h.batches[0].posterior("b").mu,24.999465,5)
+        self.assertAlmostEqual(h.batches[0].posterior("b").sigma,5.419425831,5)
+        self.assertAlmostEqual(h.batches[2].posterior("b").mu,25.00053219,5)
+        self.assertAlmostEqual(h.batches[2].posterior("b").sigma,5.419696790,5)
+    def test_env_0_TTT(self):
+        composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        results = [[0,1],[1,0],[0,1]]
+        env = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
+        h = ttt.History(composition=composition, results=results, env=env)
+        step , i = h.convergence()
+        self.assertAlmostEqual(h.batches[0].posterior("a").mu,0.001,3)
+        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,2.395,3)
+        self.assertAlmostEqual(h.batches[0].posterior("b").mu,-0.001,3)
+        self.assertAlmostEqual(h.batches[0].posterior("b").sigma,2.396,3)
+        self.assertAlmostEqual(h.batches[2].posterior("b").mu,0.001,3)
+        self.assertAlmostEqual(h.batches[2].posterior("b").sigma,2.396,3)
+    def test_teams(self):
+        composition = [ [["a","b"],["c","d"]], [["e","f"] , ["b","c"]], [["a","d"], ["e","f"]]  ]
+        results = [[0,1],[1,0],[0,1]]
+        env = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.0)
+        h = ttt.History(composition=composition, results=results, env=env)
+        step, i = h.convergence()
+        self.assertAlmostEqual(h.batches[0].posterior("a").mu,h.batches[0].posterior("b").mu,3)
+        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,h.batches[0].posterior("b").sigma,3)
+        self.assertAlmostEqual(h.batches[0].posterior("c").mu,h.batches[0].posterior("d").mu,3)
+        self.assertAlmostEqual(h.batches[0].posterior("c").sigma,h.batches[0].posterior("d").sigma,3)
+        self.assertAlmostEqual(h.batches[1].posterior("e").mu,h.batches[1].posterior("f").mu,3)
+        self.assertAlmostEqual(h.batches[1].posterior("e").sigma,h.batches[1].posterior("f").sigma,3)
+        
+        self.assertAlmostEqual(h.batches[0].posterior("a").mu,4.085,3)
+        self.assertAlmostEqual(h.batches[0].posterior("a").sigma,5.107,3)
+        self.assertAlmostEqual(h.batches[0].posterior("c").mu,-0.533,3)
+        self.assertAlmostEqual(h.batches[0].posterior("c").sigma,5.107,3)
+        self.assertAlmostEqual(h.batches[2].posterior("e").mu,-3.552,3)
+        self.assertAlmostEqual(h.batches[2].posterior("e").sigma,5.155,3)
+    def test_sigma_beta_0(self):
+        composition = [ [["a","a_b","b"],["c","c_d","d"]]
+                 , [["e","e_f","f"],["b","b_c","c"]]
+                 , [["a","a_d","d"],["e","e_f","f"]]  ]
+        results = [[0,1],[1,0],[0,1]]
+        env = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.0)
+        priors = dict()
+        for k in ["a_b", "c_d", "e_f", "b_c", "a_d", "e_f"]:
+            priors[k] = ttt.Rating(mu=0.0, sigma=1e-7, beta=0.0, gamma=0.2)
+        h = ttt.History(composition=composition, results=results, priors=priors, env=env)
+        step , i = h.convergence()
+        self.assertAlmostEqual(h.batches[0].posterior("a_b").mu,0.0,4)
+        self.assertAlmostEqual(h.batches[0].posterior("a_b").sigma,0.0,4)
+        self.assertAlmostEqual(h.batches[2].posterior("e_f").mu,-0.002,4)
+        self.assertAlmostEqual(h.batches[2].posterior("e_f").sigma,0.2,4)
+    def test_memory_Size(self):
+        def summarysize(obj):
+            import sys
+            from types import ModuleType, FunctionType
+            from gc import get_referents
+            BLACKLIST = type, ModuleType, FunctionType
+            if isinstance(obj, BLACKLIST):
+                raise TypeError('getsize() does not take argument of type: '+ str(type(obj)))
+            seen_ids = set()
+            size = 0
+            objects = [obj]
+            while objects:
+                need_referents = []
+                for obj in objects:
+                    if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
+                        seen_ids.add(id(obj))
+                        size += sys.getsizeof(obj)
+                        need_referents.append(obj)
+                objects = get_referents(*need_referents)
+            return size
+    
+        composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        results = [[0,1],[1,0],[0,1]]
+        env = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
+        h = ttt.History(composition =composition, results=results, times = [0, 10, 20], env=env)
+        self.assertEqual( summarysize(h) < 13000 , True)
+        self.assertEqual( summarysize(h.batches) - summarysize(h.agents) < 10000, True )
+        self.assertEqual( summarysize(h.agents) < 3000, True )
+        self.assertEqual( summarysize(h.batches[1]) - summarysize(h.agents) < 3500, True)
+        self.assertEqual( summarysize(h) < summarysize(composition)*15, True)
+        self.assertEqual( summarysize(h.batches[0].skills) < 1650, True)
+        self.assertEqual( summarysize(h.batches[0].events) < 1850, True )
     def test_learning_curve(self):
-        composition = [ [['aj'],['bj']],[['bj'],['cj']], [['cj'],['aj']] ]
+        composition = [ [["aj"],["bj"]],[["bj"],["cj"]], [["cj"],["aj"]] ]
         results = [[0,1],[0,1],[0,1]]    
-        h = ttt.History(composition,results, [5,6,7])
+        priors = dict()
+        for k in ["aj", "bj", "cj"]:
+            priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 25.0/300)
+        h = ttt.History(composition,results, [5,6,7], priors)
         h.convergence()
         lc = h.learning_curves()
-        for a in lc:
-            self.assertEqual(all(lc[a][i][0] < lc[a][i+1][0] for i in range(len(lc[a])-1)), True)
         self.assertEqual(lc["aj"][0][0],5)
         self.assertEqual(lc["aj"][-1][0],7)
-        self.assertAlmostEqual(lc["aj"][-1][1].mu,24.997,2)
-        self.assertAlmostEqual(lc["aj"][-1][1].sigma,5.421,2)
-        self.assertAlmostEqual(lc["cj"][-1][1].mu,25.000,2)
-        self.assertAlmostEqual(lc["cj"][-1][1].sigma,5.420,2)
-    
-        
-        
+        self.assertAlmostEqual(lc["aj"][-1][1].mu,24.999,3)
+        self.assertAlmostEqual(lc["aj"][-1][1].sigma,5.420,3)
+        self.assertAlmostEqual(lc["cj"][-1][1].mu,25.001,3)
+        self.assertAlmostEqual(lc["cj"][-1][1].sigma,5.420,3)
         
 if __name__ == "__main__":
     unittest.main()

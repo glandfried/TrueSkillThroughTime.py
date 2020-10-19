@@ -460,7 +460,7 @@ class Batch(object):
             else:
                 b.skills[a].elapsed = elapsed
                 b.skills[a].forward = b.agents[a].receive(elapsed)
-        _from = length(b)+1
+        _from = len(b)+1
         for e in range(len(composition)):
             event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t]) for t in range(len(composition[e])) ] , 0.0)
             b.events.append(event)
@@ -598,7 +598,6 @@ class History(object):
 #h.convergence(True)
 
 #timeit.timeit(lambda: History(composition=composition, results=results, env=env), number=10000)/10000
-
 
 
 
