@@ -194,7 +194,7 @@ class Gaussian(object):
     def forget(self,gamma,t):
         return Gaussian(self.mu, math.sqrt(self.sigma**2 + t*gamma**2))
     def delta(self, M):
-        return abs(self.mu - M.mu) , abs(self.sigma - self.sigma) 
+        return abs(self.mu - M.mu) , abs(self.sigma - M.sigma) 
     def exclude(self, M):
         return Gaussian(self.mu - M.mu, math.sqrt(self.sigma**2 - M.sigma**2) )
     def isapprox(self, M, tol=1e-4):
@@ -313,7 +313,7 @@ class Game(object):
         d = d[0].prior
         mu_trunc, sigma_trunc =  trunc(d.mu, d.sigma, margin[0], tie[0])
         if d.sigma==sigma_trunc:
-            delta_div = 0.0
+            delta_div = d.sigma**2*mu_trunc - sigma_trunc**2*d.mu
             theta_div_pow2 = inf
         else:
             delta_div = (d.sigma**2*mu_trunc - sigma_trunc**2*d.mu)/(d.sigma**2-sigma_trunc**2)
@@ -322,7 +322,7 @@ class Game(object):
         for i in range(len(t)):
             team = []
             for j in range(len(g.teams[o[i]])):
-                mu = g.teams[o[i]][j].N.mu + ( delta_div - d.mu)*(-1)**(i==1)
+                mu = 0.0 if d.sigma==sigma_trunc else g.teams[o[i]][j].N.mu + ( delta_div - d.mu)*(-1)**(i==1)
                 sigma_analitico = math.sqrt(theta_div_pow2 + d.sigma**2
                                             - g.teams[o[i]][j].N.sigma**2)
                 team.append(Gaussian(mu,sigma_analitico))
@@ -579,6 +579,7 @@ class History(object):
         while gr_tuple(step, self.env.epsilon) and (i < self.env.iterations):
             if verbose: print("Iteration = ", i, end=" ")
             step = self.iteration()
+            i += 1
             if verbose: print(", step = ", step)
         if verbose: print("End")
         return step, i

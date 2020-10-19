@@ -71,6 +71,12 @@ class tests(unittest.TestCase):
         mu, sigma = N - ttt.Gaussian(1.0, 1.0)
         self.assertAlmostEqual(mu,24.000, places=3) 
         self.assertAlmostEqual(sigma,8.393, places=3) 
+    def test_dict_diff(self):
+        self.assertEqual((0.1,0.05),ttt.max_tuple((0.,0.),(0.1,0.05)))
+        self.assertEqual((0.1,0.05),ttt.max_tuple((0.,0.05),(0.1,0.0)))
+        d1 = dict([(0, ttt.Gaussian(2.1,3.05))])
+        d2 = dict([(0, ttt.Gaussian(2.0,3.0))])
+        ttt.dict_diff(d1,d2)
     def test_1vs1(self):
         ta = [ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]
         tb = [ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]
@@ -90,7 +96,11 @@ class tests(unittest.TestCase):
         ta = [ttt.Rating(1.139,0.531,1.0,0.2125)]
         tb = [ttt.Rating(15.568,0.51,1.0,0.2125)]
         g = ttt.Game([ta,tb], [1,0], 0.0)
-        
+        g.likelihoods
+        self.assertAlmostEqual(g.likelihoods[0][0].sigma,ttt.inf)
+        self.assertAlmostEqual(g.likelihoods[1][0].sigma,ttt.inf)
+        self.assertAlmostEqual(g.likelihoods[0][0].mu,0.0)
+    
     def test_1vs1vs1(self):
         [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [1,0,2]).posteriors
         self.assertAlmostEqual(a.mu,25.000000,5)
