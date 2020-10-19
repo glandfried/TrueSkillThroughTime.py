@@ -23,6 +23,7 @@ h = ttt.History(composition, results, times , prior_dict, ttt.Environment(mu=0.0
 print(datetime.datetime.now().time())
 print("Converging History")
 ts_log_evidence = h.log_evidence()
+print("TS:", ts_log_evidence )
 h.convergence(True)
 print(datetime.datetime.now().time())
 ttt_log_evidence = h.log_evidence()

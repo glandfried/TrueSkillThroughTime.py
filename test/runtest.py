@@ -86,6 +86,11 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(a.sigma,0.996, places=2)
         self.assertAlmostEqual(b.mu,32.189, places=2)
         self.assertAlmostEqual(b.sigma,6.062, places=2)
+
+        ta = [ttt.Rating(1.139,0.531,1.0,0.2125)]
+        tb = [ttt.Rating(15.568,0.51,1.0,0.2125)]
+        g = ttt.Game([ta,tb], [1,0], 0.0)
+        
     def test_1vs1vs1(self):
         [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [1,0,2]).posteriors
         self.assertAlmostEqual(a.mu,25.000000,5)

@@ -312,8 +312,12 @@ class Game(object):
         o, t, d, tie, margin = g.graphical_model()
         d = d[0].prior
         mu_trunc, sigma_trunc =  trunc(d.mu, d.sigma, margin[0], tie[0])
-        delta_div = (d.sigma**2*mu_trunc - sigma_trunc**2*d.mu)/(d.sigma**2-sigma_trunc**2)
-        theta_div_pow2 = (sigma_trunc**2*d.sigma**2)/(d.sigma**2 - sigma_trunc**2)
+        if d.sigma==sigma_trunc:
+            delta_div = 0.0
+            theta_div_pow2 = inf
+        else:
+            delta_div = (d.sigma**2*mu_trunc - sigma_trunc**2*d.mu)/(d.sigma**2-sigma_trunc**2)
+            theta_div_pow2 = (sigma_trunc**2*d.sigma**2)/(d.sigma**2 - sigma_trunc**2)
         res = []
         for i in range(len(t)):
             team = []
@@ -600,4 +604,7 @@ class History(object):
 #timeit.timeit(lambda: History(composition=composition, results=results, env=env), number=10000)/10000
 
 
+#ta = [Rating(1.139,0.531,1.0,0.2125)]
+#tb = [Rating(15.568,0.51,1.0,0.2125)]
 
+#g = Game([ta,tb], [1,0], 0.0)
