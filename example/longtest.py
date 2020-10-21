@@ -34,15 +34,13 @@ class tests(unittest.TestCase):
         self.assertEqual(ts_log_evidence < ttt_log_evidence, True)
         self.assertAlmostEqual(ttt_log_evidence, -195388.7125823722)
 
-unittest.main()
-
-w_mean = [ t.posterior(str(w)).mu for t,w,b in zip(h.batches,df.white,df.black) ]  
-b_mean = [ t.posterior(str(b)).mu for t,w,b in zip(h.batches,df.white,df.black) ]  
-w_std = [ t.posterior(str(w)).sigma for t,w,b in zip(h.batches,df.white,df.black) ]
-b_std = [ t.posterior(str(b)).sigma for t,w,b in zip(h.batches,df.white,df.black) ]
-h_mean = [ t.posterior[str((h,w))].mu if h > 1 else 0 for t,w,b in zip(h.batches,df.handicap,df.width) ]
-h_std = [ t.posteriors[str((h,w))].sigma if h > 1 else 0 for t,w,b in zip(h.batches,df.handicap,df.width) ] 
-evidence = [  t.events[0].evidence for t in history.times] 
+w_mean = [ t.posterior(str(w)).mu for t,w in zip(h.batches,df.white) ]  
+b_mean = [ t.posterior(str(b)).mu for t,b in zip(h.batches,df.black) ]  
+w_std = [ t.posterior(str(w)).sigma for t,w in zip(h.batches,df.white) ]
+b_std = [ t.posterior(str(b)).sigma for t,b in zip(h.batches,df.black) ]
+h_mean = [ t.posterior[str((hp,w))].mu if hp > 1 else 0 for hp,w in zip(df.handicap,df.width) ]
+h_std = [ t.posteriors[str((hp,w))].sigma if hp > 1 else 0 for hp,w in zip(df.handicap,df.width) ] 
+evidence = [ t.events[0].evidence for t in h.batches ] 
 
 res = df[['id']].copy() 
 res["w_mean"] = w_mean
@@ -54,3 +52,5 @@ res["h_std"] = h_std
 res["evidence"] = evidence
 
 res.to_csv("output/longtest_output.csv", index=False)
+
+tests.evidence()

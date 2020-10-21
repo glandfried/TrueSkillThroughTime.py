@@ -53,10 +53,10 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual((mu,sigma) ,(0.7978845368663289,0.6028103066716792) )
         mu, sigma = ttt.trunc(*ttt.Gaussian(0.,math.sqrt(2)*(25/6) ),1.8776005988,True)
         self.assertAlmostEqual(mu,0.0) 
-        self.assertAlmostEqual(sigma,1.07670, places=4)
+        self.assertAlmostEqual(sigma,1.0767055, places=4)
         mu, sigma = ttt.trunc(*ttt.Gaussian(12.,math.sqrt(2)*(25/6)),1.8776005988,True)
-        self.assertAlmostEqual(mu,0.3900999, places=5) 
-        self.assertAlmostEqual(sigma,1.034401, places=5)
+        self.assertAlmostEqual(mu,0.3900995, places=5) 
+        self.assertAlmostEqual(sigma,1.0343979, places=5)
     def gaussian(self):
         N, M = ttt.Gaussian(25.0, 25.0/3), ttt.Gaussian(0.0, 1.0)
         mu, sigma = M/N
