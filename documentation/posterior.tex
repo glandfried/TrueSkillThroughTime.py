@@ -1,6 +1,11 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[utf8]{inputenc}
 \input{tex/encabezado.tex}
+\newif\ifen
+\newif\ifes
+\newcommand{\en}[1]{\ifen#1\fi}
+\newcommand{\es}[1]{\ifes#1\fi}
+\entrue
 
 \input{tex/tikzlibrarybayesnet.code.tex} % Para que ande se necesita copiar el archivo  tikzlibrarybayesnet.code.tex en la misma carpeta
 

@@ -1,4 +1,5 @@
-all: versions/mati/
+all: 
+	python3 runtest.py
 
 versions/mati/:
 	- mkdir versions/mati

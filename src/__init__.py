@@ -96,7 +96,7 @@ def mu_sigma(tau_,pi_):
 #timeit.timeit(lambda: mu_sigma(1.0,2.0) , number=10000)/10000
 
 @njit(types.f8(types.f8,types.f8,types.f8))
-def cdf(x, mu, sigma):
+def cdf(x, mu=0, sigma=1):
     z = -(x - mu) / (sigma * sqrt2)
     return (0.5 * erfc(z))
 
@@ -131,6 +131,10 @@ def trunc(mu, sigma, margin, tie):
     sigma_trunc = sigma * math.sqrt(1-w)
     return mu_trunc, sigma_trunc
 
+def approx(N, margin, tie):
+    mu, sigma = trunc(N.mu, N.sigma, margin, tie)
+    return Gaussian(mu, sigma)
+
 #timeit.timeit(lambda: trunc(1.0,2.0,0.0,False), number=10000)/10000
 
 
@@ -145,8 +149,11 @@ def max_tuple(t1, t2):
 def gr_tuple(tup, threshold):
     return (tup[0] > threshold) or (tup[1] > threshold)
 
+def podium(xs):
+    return sortperm(xs)
+
 def sortperm(xs):
-    return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))] 
+    return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))]
 
 def dict_diff(old, new):
     step = (0., 0.)
@@ -209,16 +216,16 @@ Nms = Gaussian(MU, SIGMA)
 
 class Rating(object):
     def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, draw=Ninf):
-        self.N = Gaussian(mu,sigma)
+        self.prior = Gaussian(mu,sigma)
         self.beta = beta
         self.gamma = gamma
         self.draw = draw
     def performance(self):
-        return Gaussian(self.N.mu, math.sqrt(self.N.sigma**2 + self.beta**2))
+        return Gaussian(self.prior.mu, math.sqrt(self.prior.sigma**2 + self.beta**2))
     def __repr__(self):
-        return 'Rating(mu=%.3f, sigma=%.3f)' % (self.N.mu, self.N.sigma) 
+        return 'Rating(mu=%.3f, sigma=%.3f)' % (self.prior.mu, self.prior.sigma) 
 
-class team_messages(object):
+class team_variable(object):
     def __init__(self, prior=Ninf, likelihood_lose=Ninf, likelihood_win=Ninf, likelihood_draw=Ninf):
         self.prior = prior
         self.likelihood_lose = likelihood_lose
@@ -237,6 +244,12 @@ class team_messages(object):
     @property
     def likelihood(self):
         return self.likelihood_win*self.likelihood_lose*self.likelihood_draw
+
+def performance(team):
+    res = N00
+    for rating in team:
+        res += rating.performance()
+    return res
 
 class draw_messages(object):
     def __init__(self,prior = Ninf, prior_team = Ninf, likelihood_lose = Ninf, likelihood_win = Ninf):
@@ -288,16 +301,13 @@ class Game(object):
         return [len(team) for team in self.teams]
     
     def performance(self,i):
-        res = N00
-        for rating in self.teams[i]:
-            res += rating.performance()
-        return res
+        return performance(self.teams[i])    
     
     def graphical_model(self):
         g = self 
         r = g.result
         o = sortperm(r) 
-        t = [team_messages(g.performance(o[e]),Ninf, Ninf, Ninf) for e in range(len(g))]
+        t = [team_variable(g.performance(o[e]),Ninf, Ninf, Ninf) for e in range(len(g))]
         d = [diff_messages(t[e].prior - t[e+1].prior, Ninf) for e in range(len(g)-1)]
         tie = [r[o[e]]==r[o[e+1]] for e in range(len(d))]
         margin = [0.0 if g.p_draw==0.0 else compute_margin(g.p_draw, math.sqrt( sum([a.beta**2 for a in g.teams[o[e]]]) + sum([a.beta**2 for a in g.teams[o[e+1]]]) )) for e in range(len(d))] 
@@ -322,9 +332,9 @@ class Game(object):
         for i in range(len(t)):
             team = []
             for j in range(len(g.teams[o[i]])):
-                mu = 0.0 if d.sigma==sigma_trunc else g.teams[o[i]][j].N.mu + ( delta_div - d.mu)*(-1)**(i==1)
+                mu = 0.0 if d.sigma==sigma_trunc else g.teams[o[i]][j].prior.mu + ( delta_div - d.mu)*(-1)**(i==1)
                 sigma_analitico = math.sqrt(theta_div_pow2 + d.sigma**2
-                                            - g.teams[o[i]][j].N.sigma**2)
+                                            - g.teams[o[i]][j].prior.sigma**2)
                 team.append(Gaussian(mu,sigma_analitico))
             res.append(team)
         return (res[0],res[1]) if o[0]<o[1] else (res[1],res[0])
@@ -337,20 +347,20 @@ class Game(object):
             step = (0., 0.)
             for e in range(len(d)-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
-                d[e].likelihood = Gaussian(*trunc(d[e].prior.mu,d[e].prior.sigma,margin[e],tie[e]))/d[e].prior
+                d[e].likelihood = approx(d[e].prior,margin[e],tie[e])/d[e].prior
                 likelihood_lose = t[e].posterior_win - d[e].likelihood
                 step = max_tuple(step,t[e+1].likelihood_lose.delta(likelihood_lose))
                 t[e+1].likelihood_lose = likelihood_lose
             for e in range(len(d)-1,0,-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
-                d[e].likelihood = Gaussian(*trunc(d[e].prior.mu,d[e].prior.sigma,margin[e],tie[e]))/d[e].prior
+                d[e].likelihood = approx(d[e].prior,margin[e],tie[e])/d[e].prior
                 likelihood_win = t[e+1].posterior_lose + d[e].likelihood
                 step = max_tuple(step,t[e].likelihood_win.delta(likelihood_win))
                 t[e].likelihood_win = likelihood_win
             i += 1
         if len(d)==1:
             d[0].prior = t[0].posterior_win - t[1].posterior_lose
-            d[0].likelihood = Gaussian(*trunc(d[0].prior.mu,d[0].prior.sigma,margin[0],tie[0]))/d[0].prior
+            d[0].likelihood = approx(d[0].prior,margin[0],tie[0])/d[0].prior
         t[0].likelihood_win = t[1].posterior_lose + d[0].likelihood
         t[-1].likelihood_lose = t[-2].posterior_win - d[-1].likelihood
         return [ t[o[e]].likelihood for e in range(len(t)) ] 
@@ -358,13 +368,13 @@ class Game(object):
     def compute_likelihoods(self):
         if len(self.teams)>2:
             m_t_ft = self.likelihood_teams()
-            self.likelihoods = [[ m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].N) for i in range(len(self.teams[e])) ] for e in range(len(self))]
+            self.likelihoods = [[ m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].prior) for i in range(len(self.teams[e])) ] for e in range(len(self))]
         else:
             self.likelihoods = self.likelihood_analitico()            
         
     @property
     def posteriors(self):
-        return [[ self.likelihoods[e][i] * self.teams[e][i].N for i in range(len(self.teams[e]))] for e in range(len(self))]
+        return [[ self.likelihoods[e][i] * self.teams[e][i].prior for i in range(len(self.teams[e]))] for e in range(len(self))]
 
 #ta = [Rating(0,1),Rating(0,1),Rating(0,1)]
 #tb = [Rating(0,1),Rating(0,1),Rating(0,1)]
@@ -386,16 +396,16 @@ class Skill(object):
         self.elapsed = elapsed
 
 class Agent(object):
-    def __init__(self, prior, message, last_time):
-        self.prior = prior
+    def __init__(self, rating, message, last_time):
+        self.rating = rating
         self.message = message
         self.last_time = last_time
     
     def receive(self, elapsed):
         if self.message != Ninf:
-            res = self.message.forget(self.prior.gamma, elapsed) 
+            res = self.message.forget(self.rating.gamma, elapsed) 
         else:
-            res = self.prior.N
+            res = self.rating.prior
         return res
 
 def clean(agents,last_time=False):
@@ -470,6 +480,7 @@ class Batch(object):
             b.events.append(event)
         b.iteration(_from)
     def posterior(self, agent):
+        #TODO: esta funci'on debe pertenecer a la clase Skill 
         return self.skills[agent].likelihood*self.skills[agent].backward*self.skills[agent].forward
     def posteriors(self):
         res = dict()
@@ -477,9 +488,9 @@ class Batch(object):
             res[a] = self.posterior(a)
         return res
     def within_prior(self, item):
-        prior = self.agents[item.name].prior
+        r = self.agents[item.name].rating
         mu, sigma = self.posterior(item.name)/item.likelihood
-        res = Rating(mu, sigma, prior.beta,prior.gamma)
+        res = Rating(mu, sigma, r.beta, r.gamma)
         return res
     def within_priors(self, event):
         return [ [self.within_prior(item) for item in team.items ] for team in self.events[event].teams ]
@@ -487,6 +498,7 @@ class Batch(object):
         for e in range(_from,len(self)):
             teams = self.within_priors(e)
             result = self.events[e].result
+            #TODO: El game tiene que recibir el margen
             g = Game(teams,result)
             for (t, team) in enumerate(self.events[e].teams):
                 for (i, item) in enumerate(team.items):
@@ -496,16 +508,18 @@ class Batch(object):
     def convergence(self, epsilon=1e-6, iterations = 20):
         step, i = (inf, inf), 0
         while gr_tuple(step, epsilon) and (i < iterations):
+            #TODO: hay que copiar el posterior?
             old = self.posteriors().copy()
             self.iteration()
             step = dict_diff(old, self.posteriors())
             i += 1
         return i
     def forward_prior_out(self, agent):
+        #TODO: Definir posterior_back en Skill
         return self.skills[agent].forward * self.skills[agent].likelihood
     def backward_prior_out(self, agent):
         N = self.skills[agent].likelihood*self.skills[agent].backward
-        return N.forget(self.agents[agent].prior.gamma, self.skills[agent].elapsed) 
+        return N.forget(self.agents[agent].rating.gamma, self.skills[agent].elapsed) 
     def new_backward_info(self):
         for a in self.skills:
             self.skills[a].backward = self.agents[a].message
@@ -518,6 +532,7 @@ class Batch(object):
 #agents = dict()
 #for k in ["a", "b", "c", "d", "e", "f"]:
     #agents[k] = Agent(Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , Ninf, -inf)
+
 #composition = [ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ]
 #results = [[0,1],[1,0],[0,1]]
 #batch = Batch(composition = composition, results = results, time = 0, agents = agents)
@@ -532,6 +547,7 @@ class History(object):
         self.batches = []
         self.agents = dict([ (a, Agent(priors[a] if a in priors else Rating(env.mu, env.sigma, env.beta, env.gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
         self.env = env
+        #TODO: self.time podr'ia formar parte de Environment
         self.time = len(times)>0
         self.trueskill(composition,results,times)
         
@@ -543,6 +559,8 @@ class History(object):
         o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
         while i < len(self):
+            #TODO: t tiene que ser i en caso de time
+            #TODO: usar size y time 
             j, t = i+1, 1 if len(times) == 0 else times[o[i]]
             while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
             b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.env)        
@@ -558,6 +576,7 @@ class History(object):
             for a in self.batches[j+1].skills:
                 self.agents[a].message = self.batches[j+1].backward_prior_out(a)
             old = self.batches[j].posteriors().copy()
+            #TODO: evaluar que los bathces no tengan los agentes
             self.batches[j].new_backward_info()
             step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
         clean(self.agents)
@@ -609,3 +628,12 @@ class History(object):
 #tb = [Rating(15.568,0.51,1.0,0.2125)]
 
 #g = Game([ta,tb], [1,0], 0.0)
+type(N00) == Gaussian 
+timeit.timeit(lambda: isinstance(N00,Gaussian), number=10000)/10000
+timeit.timeit(lambda: type(N00) == Gaussian, number=10000)/10000
+timeit.timeit(lambda: Gaussian(0,0), number=10000)/10000
+
+
+
+2.5e-6-1.8e-6
+0.0000001

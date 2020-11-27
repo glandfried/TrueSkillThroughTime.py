@@ -12,13 +12,6 @@ import math
 #env = ts.TrueSkill(draw_probability=0.25)
 import time
 
-#start = time.time()
-#g = ttt.Game([[ttt.Rating(ttt.Gaussian(29,1))] ,[ttt.Rating()]], [1,0], 0.0)
-#time.time() -start
-
-#start = time.time()
-#g = old.Game([[old.Rating(29,1)] ,[old.Rating()]], [1,0], 0.0)
-#time.time() -start
 
 class tests(unittest.TestCase):
     def test_gaussian_init(self):
@@ -88,15 +81,14 @@ class tests(unittest.TestCase):
         
         g = ttt.Game([[ttt.Rating(29.,1.,25.0/6)] ,[ttt.Rating(25.0,25.0/3,25.0/6)]], [1,0])
         [a], [b] = g.posteriors
-        self.assertAlmostEqual(a.mu,28.896, places=2)
-        self.assertAlmostEqual(a.sigma,0.996, places=2)
-        self.assertAlmostEqual(b.mu,32.189, places=2)
-        self.assertAlmostEqual(b.sigma,6.062, places=2)
+        self.assertAlmostEqual(a.mu,28.89648, places=4)
+        self.assertAlmostEqual(a.sigma,0.9966043, places=4)
+        self.assertAlmostEqual(b.mu,32.18921, places=4)
+        self.assertAlmostEqual(b.sigma,6.062064, places=4)
 
         ta = [ttt.Rating(1.139,0.531,1.0,0.2125)]
         tb = [ttt.Rating(15.568,0.51,1.0,0.2125)]
         g = ttt.Game([ta,tb], [1,0], 0.0)
-        g.likelihoods
         self.assertAlmostEqual(g.likelihoods[0][0].sigma,ttt.inf)
         self.assertAlmostEqual(g.likelihoods[1][0].sigma,ttt.inf)
         self.assertAlmostEqual(g.likelihoods[0][0].mu,0.0)
@@ -125,16 +117,11 @@ class tests(unittest.TestCase):
         ta = [ttt.Rating(25.,3.,25.0/6,25.0/300)]
         tb = [ttt.Rating(29.,2.,25.0/6,25.0/300)]
         [a], [b] = ttt.Game([ta,tb], [0,0], 0.25).posteriors
-        self.assertAlmostEqual(a.mu,25.736,2)
-        self.assertAlmostEqual(a.sigma,2.710,2)
-        self.assertAlmostEqual(b.mu,28.672,2)
-        self.assertAlmostEqual(b.sigma,1.916,2)
+        self.assertAlmostEqual(a.mu,25.736,4)
+        self.assertAlmostEqual(a.sigma,2.709956,4)
+        self.assertAlmostEqual(b.mu,28.67289,4)
+        self.assertAlmostEqual(b.sigma,1.916471,4)
         
-        [b], [a] = ttt.Game([tb,ta], [0,0], 0.25).posteriors
-        self.assertAlmostEqual(a.mu,25.736,2)
-        self.assertAlmostEqual(a.sigma,2.710,2)
-        self.assertAlmostEqual(b.mu,28.672,2)
-        self.assertAlmostEqual(b.sigma,1.916,2)
     def test_1vs1vs1_draw(self):
         [a], [b], [c] = ttt.Game([[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)],[ttt.Rating(25.0,25.0/3,25.0/6,25.0/300)]], [0,0,0],0.25).posteriors
         self.assertAlmostEqual(a.mu,25.000,3)
@@ -275,6 +262,7 @@ class tests(unittest.TestCase):
         priors = dict()
         for k in ["aa", "b", "c"]:
             priors[k] = ttt.Rating(25., 25.0/3, 25.0/6, 0.15*25.0/3) 
+        
         h = ttt.History(composition, results, [1,2,3],priors)
 
         p0 = h.batches[0].posteriors()
