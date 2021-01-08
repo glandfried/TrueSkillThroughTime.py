@@ -632,8 +632,3 @@ type(N00) == Gaussian
 timeit.timeit(lambda: isinstance(N00,Gaussian), number=10000)/10000
 timeit.timeit(lambda: type(N00) == Gaussian, number=10000)/10000
 timeit.timeit(lambda: Gaussian(0,0), number=10000)/10000
-
-
-
-2.5e-6-1.8e-6
-0.0000001

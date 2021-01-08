@@ -12,7 +12,6 @@ import math
 #env = ts.TrueSkill(draw_probability=0.25)
 import time
 
-
 class tests(unittest.TestCase):
     def test_gaussian_init(self):
         N01 = ttt.Gaussian(mu=0,sigma=1)
@@ -432,6 +431,33 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(lc["aj"][-1][1].sigma,5.420,3)
         self.assertAlmostEqual(lc["cj"][-1][1].mu,25.001,3)
         self.assertAlmostEqual(lc["cj"][-1][1].sigma,5.420,3)
+    def gamma(self):
+        composition = [ [["a"],["b"]], [["a"],["b"]]]
+        results = [[0,1],[0,1]]
+        
+        env0 = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.0)
+        env10 = ttt.Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=10.0)
+        env100 = ttt.Environment(mu=0.0,sigma=math.sqrt(6.0**2+10**2), beta=1.0, gamma=10.0)
+        
+        h = ttt.History(composition=composition,results=results,env=env0)
+        mu0, sigma0 = h.batches[1].skills['a'].forward
+        self.assertAlmostEqual(mu0, 3.33907896)
+        self.assertAlmostEqual(sigma0, 4.98503276)
+        
+        h = ttt.History(composition=composition,results=results,env=env10)
+        mu10, sigma10 = h.batches[1].skills['a'].forward
+        self.assertAlmostEqual(mu10, 3.33907896)
+        self.assertAlmostEqual(sigma10, 11.1736543)
+        
+        #Observaci'on:
+        #   El paquete trueskill python agrega gamma antes de la partida 
+        #   devuelve, trueskill.Rating(mu=6.555, sigma=9.645)
+        
+        h = ttt.History(composition=composition,results=results,env=env100)
+        mu100, sigma100 = h.batches[0].posterior("a")
+        self.assertAlmostEqual(mu100, 6.555467)
+        self.assertAlmostEqual(sigma100, 9.6449906)
+        
         
 if __name__ == "__main__":
     unittest.main()
