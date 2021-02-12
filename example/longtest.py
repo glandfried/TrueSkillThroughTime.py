@@ -13,13 +13,13 @@ df = pd.read_csv('input/summary_filtered.csv')
 
 prior_dict = dict()
 for h_key in set([(h,w) for h, w in zip(df.handicap, df.width)]):
-    prior_dict[str(h_key)] = ttt.Rating(0.,25.0/3.,0.,1.0/100)
-results = [[1,0] if bw==1 else [0, 1] for bw in df.black_win]
-composition = [[[str(w)],[str(b)]] if h <2 else [[str(w)],[str(b),str((h,s))]] for w,b,h,s in zip(df.white,df.black,df.handicap,df.width) ]   
+    prior_dict[str(h_key)] = ttt.Player(ttt.Gaussian(0.,25.0/3.),0.,1.0/100)
+results = [[0,1] if bw==1 else [1,0] for bw in df.black_win]
+composition = [[[str(w)],[str(b)]] if h<2 else [[str(w)],[str(b),str((h,s))]] for w,b,h,s in zip(df.white,df.black,df.handicap,df.width) ]   
 times = [] 
 
 print(datetime.datetime.now().time())
-h = ttt.History(composition, results, times , prior_dict, ttt.Environment(mu=0.0,sigma=10.,beta=1.,gamma=0.2125,iterations=16))
+h = ttt.History(composition, results, times , prior_dict, mu=0.0, sigma=10.,beta=1.,gamma=0.2125,iterations=16)
 print(datetime.datetime.now().time())
 print("Converging History")
 ts_log_evidence = h.log_evidence()

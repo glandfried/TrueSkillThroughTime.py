@@ -9,11 +9,10 @@ import math
 import timeit
 from numba import njit, types, typed
 #import ipdb
-import trueskill as ts
+#import trueskill as ts
 
 """
-TODO:
-    Optimize.
+Optimize:
     - Numba have several problems with jitclass
     - c++ may be a better solution
 """
@@ -30,16 +29,6 @@ sqrt2pi = math.sqrt(2 * math.pi)
 inf = math.inf
 PI = SIGMA**-2
 TAU = PI * MU
-
-class Environment(object):
-    def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, epsilon=EPSILON, iterations=ITERATIONS):
-        self.mu = mu
-        self.sigma = sigma
-        self.beta = beta
-        self.gamma = gamma
-        self.p_draw = p_draw
-        self.epsilon = epsilon
-        self.iterations = iterations
 
 @njit(types.f8(types.f8))
 def erfc(x):
@@ -152,8 +141,8 @@ def gr_tuple(tup, threshold):
 def podium(xs):
     return sortperm(xs)
 
-def sortperm(xs):
-    return [i for (v, i) in sorted((v, i) for (i, v) in enumerate(xs))]
+def sortperm(xs, reverse=False):
+    return [i for (v, i) in sorted(((v, i) for (i, v) in enumerate(xs)), key=lambda t: t[0], reverse=reverse)]
 
 def dict_diff(old, new):
     step = (0., 0.)
@@ -214,16 +203,16 @@ N00 = Gaussian(0,0)
 Ninf = Gaussian(0,inf)
 Nms = Gaussian(MU, SIGMA)
 
-class Rating(object):
-    def __init__(self, mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, draw=Ninf):
-        self.prior = Gaussian(mu,sigma)
+class Player(object):
+    def __init__(self, prior = Gaussian(MU, SIGMA), beta=BETA, gamma=GAMMA, prior_draw=Ninf):
+        self.prior = prior
         self.beta = beta
         self.gamma = gamma
-        self.draw = draw
+        self.prior_draw= prior_draw
     def performance(self):
         return Gaussian(self.prior.mu, math.sqrt(self.prior.sigma**2 + self.beta**2))
     def __repr__(self):
-        return 'Rating(mu=%.3f, sigma=%.3f)' % (self.prior.mu, self.prior.sigma) 
+        return 'Player(Gaussian(mu=%.3f, sigma=%.3f), beta=%.3f, gamma=%.3f)' % (self.prior.mu, self.prior.sigma, self.beta, self.gamma) 
 
 class team_variable(object):
     def __init__(self, prior=Ninf, likelihood_lose=Ninf, likelihood_win=Ninf, likelihood_draw=Ninf):
@@ -247,8 +236,8 @@ class team_variable(object):
 
 def performance(team):
     res = N00
-    for rating in team:
-        res += rating.performance()
+    for player in team:
+        res += player.performance()
     return res
 
 class draw_messages(object):
@@ -283,8 +272,8 @@ class diff_messages(object):
         return self.prior*self.likelihood
 
 class Game(object):
-    def __init__(self, teams, result, p_draw=0.0):
-        if len(teams) != len(result): raise ValueError("len(teams) != len(result)")
+    def __init__(self, teams, result = [], p_draw=0.0):
+        if len(result) and (len(teams) != len(result)): raise ValueError("len(result) and (len(teams) != len(result))")
         if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
         
         self.teams = teams
@@ -295,7 +284,7 @@ class Game(object):
         self.compute_likelihoods()
         
     def __len__(self):
-        return len(self.result)
+        return len(self.teams)
     
     def size(self):
         return [len(team) for team in self.teams]
@@ -305,8 +294,8 @@ class Game(object):
     
     def graphical_model(self):
         g = self 
-        r = g.result
-        o = sortperm(r) 
+        r = g.result if len(g.result) > 0 else [i for i in range(len(g.teams)-1,-1,-1)] 
+        o = sortperm(r, reverse=True) 
         t = [team_variable(g.performance(o[e]),Ninf, Ninf, Ninf) for e in range(len(g))]
         d = [diff_messages(t[e].prior - t[e+1].prior, Ninf) for e in range(len(g)-1)]
         tie = [r[o[e]]==r[o[e+1]] for e in range(len(d))]
@@ -376,15 +365,15 @@ class Game(object):
     def posteriors(self):
         return [[ self.likelihoods[e][i] * self.teams[e][i].prior for i in range(len(self.teams[e]))] for e in range(len(self))]
 
-#ta = [Rating(0,1),Rating(0,1),Rating(0,1)]
-#tb = [Rating(0,1),Rating(0,1),Rating(0,1)]
-#tc = [Rating(0,1),Rating(0,1),Rating(0,1)]
-#td = [Rating(0,1),Rating(0,1),Rating(0,1)]
+#ta = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
+#tb = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
+#tc = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
+#td = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
 #time_tt = timeit.timeit(lambda: Game([ta,tb],[1,0]).posteriors, number=10000)/10000
-#ta = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
-#tb = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
-#tc = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
-#td = [ts.Rating(0,1),ts.Rating(0,1),ts.Rating(0,1)]
+#ta = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
+#tb = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
+#tc = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
+#td = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
 #time_ts = timeit.timeit(lambda: ts.rate([ta,tb],[1,0]), number=10000)/10000
 #time_ts/time_tt
 
@@ -396,16 +385,16 @@ class Skill(object):
         self.elapsed = elapsed
 
 class Agent(object):
-    def __init__(self, rating, message, last_time):
-        self.rating = rating
+    def __init__(self, player, message, last_time):
+        self.player = player
         self.message = message
         self.last_time = last_time
     
     def receive(self, elapsed):
         if self.message != Ninf:
-            res = self.message.forget(self.rating.gamma, elapsed) 
+            res = self.message.forget(self.player.gamma, elapsed) 
         else:
-            res = self.rating.prior
+            res = self.player.prior
         return res
 
 def clean(agents,last_time=False):
@@ -447,24 +436,24 @@ def compute_elapsed(last_time, actual_time):
     return 0 if last_time == -inf  else ( 1 if last_time == inf else (actual_time - last_time))
 
 class Batch(object):
-    def __init__(self, composition, results, time, agents, env=Environment()):
-        if len(composition)!= len(results): raise ValueError("len(composition)!= len(results)")
+    def __init__(self, composition, results = [] , time = 0, agents = dict(), p_draw=0.0):
+        if (len(results)>0) and (len(composition)!= len(results)): raise ValueError("(len(results)>0) and (len(composition)!= len(results))")
         
         this_agents = set( [a for teams in composition for team in teams for a in team ] )
         elapsed = dict([ (a,  compute_elapsed(agents[a].last_time, time) ) for a in this_agents ])
         
         self.skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
-        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t]  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
+        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
         self.time = time
         self.agents = agents
+        self.p_draw = p_draw
         self.iteration()
-        
     
     def __repr__(self):
         return "Batch(time={}, events={})".format(self.time,self.events)
     def __len__(self):
         return len(self.events)
-    def add_events(self, composition, results):
+    def add_events(self, composition, results = []):
         b=self
         this_agents = set( [a for teams in composition for team in teams for a in team ] )
         for a in this_agents:
@@ -476,11 +465,11 @@ class Batch(object):
                 b.skills[a].forward = b.agents[a].receive(elapsed)
         _from = len(b)+1
         for e in range(len(composition)):
-            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t]) for t in range(len(composition[e])) ] , 0.0)
+            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1 ) for t in range(len(composition[e])) ] , 0.0)
             b.events.append(event)
         b.iteration(_from)
     def posterior(self, agent):
-        #TODO: esta funci'on debe pertenecer a la clase Skill 
+        #This function could be a method of the class Skill 
         return self.skills[agent].likelihood*self.skills[agent].backward*self.skills[agent].forward
     def posteriors(self):
         res = dict()
@@ -488,18 +477,17 @@ class Batch(object):
             res[a] = self.posterior(a)
         return res
     def within_prior(self, item):
-        r = self.agents[item.name].rating
+        r = self.agents[item.name].player
         mu, sigma = self.posterior(item.name)/item.likelihood
-        res = Rating(mu, sigma, r.beta, r.gamma)
+        res = Player(Gaussian(mu, sigma), r.beta, r.gamma)
         return res
-    def within_priors(self, event):
+    def within_priors(self, event):#event=0
         return [ [self.within_prior(item) for item in team.items ] for team in self.events[event].teams ]
-    def iteration(self, _from=0):
-        for e in range(_from,len(self)):
+    def iteration(self, _from=0):#self=b
+        for e in range(_from,len(self)):#e=0
             teams = self.within_priors(e)
             result = self.events[e].result
-            #TODO: El game tiene que recibir el margen
-            g = Game(teams,result)
+            g = Game(teams, result, self.p_draw)
             for (t, team) in enumerate(self.events[e].teams):
                 for (i, item) in enumerate(team.items):
                     self.skills[item.name].likelihood = (self.skills[item.name].likelihood / item.likelihood) * g.likelihoods[t][i]
@@ -519,7 +507,7 @@ class Batch(object):
         return self.skills[agent].forward * self.skills[agent].likelihood
     def backward_prior_out(self, agent):
         N = self.skills[agent].likelihood*self.skills[agent].backward
-        return N.forget(self.agents[agent].rating.gamma, self.skills[agent].elapsed) 
+        return N.forget(self.agents[agent].player.gamma, self.skills[agent].elapsed) 
     def new_backward_info(self):
         for a in self.skills:
             self.skills[a].backward = self.agents[a].message
@@ -531,7 +519,7 @@ class Batch(object):
 
 #agents = dict()
 #for k in ["a", "b", "c", "d", "e", "f"]:
-    #agents[k] = Agent(Rating(25., 25.0/3, 25.0/6, 25.0/300 ) , Ninf, -inf)
+    #agents[k] = Agent(Player(Gaussian(25., 25.0/3), 25.0/6, 25.0/300 ) , Ninf, -inf)
 
 #composition = [ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ]
 #results = [[0,1],[1,0],[0,1]]
@@ -539,15 +527,19 @@ class Batch(object):
 #timeit.timeit(lambda: Batch(composition = composition, results = results, time = 0, agents = agents), number=10000)/10000
 
 class History(object):
-    def __init__(self,composition,results,times=[],priors=dict(), env=Environment()):
-        if len(composition) != len(results): raise ValueError("len(composition) != len(results)")
+    def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, epsilon=EPSILON, iterations=ITERATIONS):
+        if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
         if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
         
         self.size = len(composition)
         self.batches = []
-        self.agents = dict([ (a, Agent(priors[a] if a in priors else Rating(env.mu, env.sigma, env.beta, env.gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
-        self.env = env
-        #TODO: self.time podr'ia formar parte de Environment
+        self.agents = dict([ (a, Agent(priors[a] if a in priors else Player(Gaussian(mu, sigma), beta, gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
+        self.mu = mu
+        self.sigma = sigma
+        self.gamma = gamma
+        self.p_draw = p_draw
+        self.epsilon = epsilon
+        self.iterations = iterations
         self.time = len(times)>0
         self.trueskill(composition,results,times)
         
@@ -563,7 +555,10 @@ class History(object):
             #TODO: usar size y time 
             j, t = i+1, 1 if len(times) == 0 else times[o[i]]
             while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
-            b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.env)        
+            if len(results) > 0:
+                b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.p_draw)
+            else:
+                b = Batch([composition[k] for k in o[i:j]],[], t, self.agents, self.p_draw)
             self.batches.append(b)
             for a in b.skills:
                 self.agents[a].last_time = t if self.time else inf
@@ -593,9 +588,9 @@ class History(object):
             step = max_tuple(step, dict_diff(old, self.batches[0].posteriors()))
         
         return step
-    def convergence(self, verbose=False):
+    def convergence(self, verbose=True):
         step = (inf, inf); i = 0
-        while gr_tuple(step, self.env.epsilon) and (i < self.env.iterations):
+        while gr_tuple(step, self.epsilon) and (i < self.iterations):
             if verbose: print("Iteration = ", i, end=" ")
             step = self.iteration()
             i += 1
@@ -617,18 +612,17 @@ class History(object):
 
 #composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
 #results = [[0,1],[1,0],[0,1]]
-#env = Environment(mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
-#h = History(composition=composition, results=results, env=env)
+#h = History(composition=composition, results=results, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
 #h.convergence(True)
 
-#timeit.timeit(lambda: History(composition=composition, results=results, env=env), number=10000)/10000
+#timeit.timeit(lambda: History(composition=composition, results=results, iterations = 100), number=10000)/10000
 
 
-#ta = [Rating(1.139,0.531,1.0,0.2125)]
-#tb = [Rating(15.568,0.51,1.0,0.2125)]
+#ta = [Player(Gaussian(1.139,0.531),1.0,0.2125)]
+#tb = [Player(Gaussian(15.568,0.51),1.0,0.2125)]
 
 #g = Game([ta,tb], [1,0], 0.0)
-type(N00) == Gaussian 
-timeit.timeit(lambda: isinstance(N00,Gaussian), number=10000)/10000
-timeit.timeit(lambda: type(N00) == Gaussian, number=10000)/10000
-timeit.timeit(lambda: Gaussian(0,0), number=10000)/10000
+#type(N00) == Gaussian 
+#timeit.timeit(lambda: isinstance(N00,Gaussian), number=10000)/10000
+#timeit.timeit(lambda: type(N00) == Gaussian, number=10000)/10000
+#timeit.timeit(lambda: Gaussian(0,0), number=10000)/10000
