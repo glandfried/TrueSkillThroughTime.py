@@ -73,13 +73,13 @@ class tests(unittest.TestCase):
         ta = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]
         tb = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]
         g = ttt.Game([ta,tb],[0,1], 0.0)
-        [a], [b] = g.posteriors
+        [a], [b] = g.posteriors()
         self.assertAlmostEqual(a.mu,20.79477925612302,4)
         self.assertAlmostEqual(b.mu,29.20522074387697,4)
         self.assertAlmostEqual(a.sigma,7.194481422570443 ,places=4)
         
         g = ttt.Game([[ttt.Player(ttt.Gaussian(29.,1.),25.0/6)] ,[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6)]], [0,1])
-        [a], [b] = g.posteriors
+        [a], [b] = g.posteriors()
         self.assertAlmostEqual(a.mu,28.89648, places=4)
         self.assertAlmostEqual(a.sigma,0.9966043, places=4)
         self.assertAlmostEqual(b.mu,32.18921, places=4)
@@ -93,21 +93,21 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(g.likelihoods[0][0].mu,0.0)
     
     def test_1vs1vs1(self):
-        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [1,2,0]).posteriors
+        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [1,2,0]).posteriors()
         self.assertAlmostEqual(a.mu,25.000000,5)
         self.assertAlmostEqual(a.sigma,6.238469796,5)
         self.assertAlmostEqual(b.mu,31.3113582213,5)
         self.assertAlmostEqual(b.sigma,6.69881865,5)
         self.assertAlmostEqual(c.mu,18.6886417787,5)
     
-        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]]).posteriors
+        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]]).posteriors()
         self.assertAlmostEqual(b.mu,25.000000,5)
         self.assertAlmostEqual(b.sigma,6.238469796,5)
         self.assertAlmostEqual(a.mu,31.3113582213,5)
         self.assertAlmostEqual(a.sigma,6.69881865,5)
         self.assertAlmostEqual(c.mu,18.6886417787,5)
     
-        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [1,2,0],0.5).posteriors
+        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [1,2,0],0.5).posteriors()
         self.assertAlmostEqual(a.mu,25.000,3)
         self.assertAlmostEqual(a.sigma,6.093,3)
         self.assertAlmostEqual(b.mu,33.379,3)
@@ -115,7 +115,7 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(c.mu,16.621,3)
         
     def test_1vs1_draw(self):
-        [a], [b] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [0,0], 0.25).posteriors
+        [a], [b] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [0,0], 0.25).posteriors()
         self.assertAlmostEqual(a.mu,25.000,2)
         self.assertAlmostEqual(a.sigma,6.469,2)
         self.assertAlmostEqual(b.mu,25.000,2)
@@ -123,14 +123,14 @@ class tests(unittest.TestCase):
         
         ta = [ttt.Player(ttt.Gaussian(25.,3.),25.0/6,25.0/300)]
         tb = [ttt.Player(ttt.Gaussian(29.,2.),25.0/6,25.0/300)]
-        [a], [b] = ttt.Game([ta,tb], [0,0], 0.25).posteriors
+        [a], [b] = ttt.Game([ta,tb], [0,0], 0.25).posteriors()
         self.assertAlmostEqual(a.mu,25.736,4)
         self.assertAlmostEqual(a.sigma,2.709956,4)
         self.assertAlmostEqual(b.mu,28.67289,4)
         self.assertAlmostEqual(b.sigma,1.916471,4)
         
     def test_1vs1vs1_draw(self):
-        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [0,0,0],0.25).posteriors
+        [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [0,0,0],0.25).posteriors()
         self.assertAlmostEqual(a.mu,25.000,3)
         self.assertAlmostEqual(a.sigma,5.729,3)
         self.assertAlmostEqual(b.mu,25.000,3)
@@ -139,7 +139,7 @@ class tests(unittest.TestCase):
         ta = [ttt.Player(ttt.Gaussian(25.,3.),25.0/6,25.0/300)]
         tb = [ttt.Player(ttt.Gaussian(25.,3.),25.0/6,25.0/300)]
         tc = [ttt.Player(ttt.Gaussian(29.,2.),25.0/6,25.0/300)]
-        [a], [b], [c] = ttt.Game([ta,tb,tc], [0,0,0],0.25).posteriors
+        [a], [b], [c] = ttt.Game([ta,tb,tc], [0,0,0],0.25).posteriors()
         self.assertAlmostEqual(a.mu,25.489,3)
         self.assertAlmostEqual(a.sigma,2.638,3)
         self.assertAlmostEqual(b.mu,25.511,3)
@@ -149,7 +149,7 @@ class tests(unittest.TestCase):
     def test_NvsN_Draw(self):
         ta = [ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300),ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300)]
         tb = [ttt.Player(ttt.Gaussian(30.,2.),25.0/6,25.0/300)]
-        [a,b], [c] = ttt.Game([ta,tb], [0,0], 0.25).posteriors
+        [a,b], [c] = ttt.Game([ta,tb], [0,0], 0.25).posteriors()
         self.assertAlmostEqual(a.mu,15.000,3)
         self.assertAlmostEqual(a.sigma,0.9916,3)
         self.assertAlmostEqual(b.mu,15.000,3)
@@ -157,13 +157,13 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(c.mu,30.000,3)
         self.assertAlmostEqual(c.sigma,1.9320,3)
         
-        [a,b], [c] = ttt.Game([ta,tb], [1,0], 0.0).posteriors
+        [a,b], [c] = ttt.Game([ta,tb], [1,0], 0.0).posteriors()
         self.assertAlmostEqual(a.mu,15.105,3)
         self.assertAlmostEqual(a.sigma,0.995,3)
         
         ta = [ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300),ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300)]
         tb = [ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300),ttt.Player(ttt.Gaussian(15.,1.),25.0/6,25.0/300)]
-        [a,b], [c,d] = ttt.Game([ta,tb], [1,0], 0.0).posteriors
+        [a,b], [c,d] = ttt.Game([ta,tb], [1,0], 0.0).posteriors()
         self.assertAlmostEqual(a.mu,15.093,3)
         self.assertAlmostEqual(a.sigma,0.996,3)
         self.assertAlmostEqual(c.mu,14.907,3)
@@ -186,7 +186,7 @@ class tests(unittest.TestCase):
         tb = [ttt.Player(ttt.Gaussian(30.,3.),25.0/6,25.0/300)]
         tc = [ttt.Player(ttt.Gaussian(14.,3.),25.0/6,25.0/300)
              ,ttt.Player(ttt.Gaussian(16.,3.),25.0/6,25.0/300)]
-        [a,b], [c], [d,e]  = ttt.Game([ta,tb, tc], [1,0,0], 0.25).posteriors
+        [a,b], [c], [d,e]  = ttt.Game([ta,tb, tc], [1,0,0], 0.25).posteriors()
         self.assertAlmostEqual(a.mu,13.051,3)
         self.assertAlmostEqual(a.sigma,2.864,3)
         self.assertAlmostEqual(b.mu,19.051,3)
@@ -304,7 +304,7 @@ class tests(unittest.TestCase):
         expected = math.sqrt((gamma*1)**2 +  h.batches[0].posterior("aa").sigma**2)
         self.assertAlmostEqual(observed, expected)
         observed = h.batches[1].posterior("aa")
-        [expected], [c] = ttt.Game(h.batches[1].within_priors(0),[0,1]).posteriors
+        [expected], [c] = ttt.Game(h.batches[1].within_priors(0),[0,1]).posteriors()
         self.assertAlmostEqual(observed.mu, expected.mu, 3)
         self.assertAlmostEqual(observed.sigma, expected.sigma, 3)
     def test_one_batch_history(self):
