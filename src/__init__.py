@@ -23,7 +23,7 @@ SIGMA = BETA * 6
 GAMMA = BETA * 0.05
 P_DRAW = 0.0
 EPSILON = 1e-6
-ITERATIONS = 10
+ITERATIONS = 30
 sqrt2 = math.sqrt(2)
 sqrt2pi = math.sqrt(2 * math.pi)
 inf = math.inf
@@ -275,6 +275,7 @@ class Game(object):
     def __init__(self, teams, result = [], p_draw=0.0):
         if len(result) and (len(teams) != len(result)): raise ValueError("len(result) and (len(teams) != len(result))")
         if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
+        if (p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result)): raise ValueError("(p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result))")
         
         self.teams = teams
         self.result = result
@@ -361,7 +362,6 @@ class Game(object):
         else:
             self.likelihoods = self.likelihood_analitico()            
         
-    @property
     def posteriors(self):
         return [[ self.likelihoods[e][i] * self.teams[e][i].prior for i in range(len(self.teams[e]))] for e in range(len(self))]
 
@@ -553,7 +553,7 @@ class History(object):
         while i < len(self):
             #TODO: t tiene que ser i en caso de time
             #TODO: usar size y time 
-            j, t = i+1, 1 if len(times) == 0 else times[o[i]]
+            j, t = i+1, i+1 if len(times) == 0 else times[o[i]]
             while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
             if len(results) > 0:
                 b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.p_draw)
