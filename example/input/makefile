@@ -15,3 +15,10 @@ ChessAnalysis.zip:
 summary_filtered.zip:
 	wget https://github.com/glandfried/centrality-ogs-dataset/releases/download/v0.0/summary_filtered.zip
 	unzip summary_filtered.zip
+
+history.zip:
+	wget https://github.com/glandfried/tennis/releases/download/atp/history.csv.zip
+	unzip history.csv.zip
+
+
+
