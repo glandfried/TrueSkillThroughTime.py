@@ -527,7 +527,7 @@ class Batch(object):
 #timeit.timeit(lambda: Batch(composition = composition, results = results, time = 0, agents = agents), number=10000)/10000
 
 class History(object):
-    def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, epsilon=EPSILON, iterations=ITERATIONS):
+    def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW):
         if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
         if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
         
@@ -538,8 +538,6 @@ class History(object):
         self.sigma = sigma
         self.gamma = gamma
         self.p_draw = p_draw
-        self.epsilon = epsilon
-        self.iterations = iterations
         self.time = len(times)>0
         self.trueskill(composition,results,times)
         
@@ -588,9 +586,9 @@ class History(object):
             step = max_tuple(step, dict_diff(old, self.batches[0].posteriors()))
         
         return step
-    def convergence(self, verbose=True):
+    def convergence(self, epsilon = EPSILON, iterations = ITERATIONS, verbose=True):
         step = (inf, inf); i = 0
-        while gr_tuple(step, self.epsilon) and (i < self.iterations):
+        while gr_tuple(step, epsilon) and (i < iterations):
             if verbose: print("Iteration = ", i, end=" ")
             step = self.iteration()
             i += 1
