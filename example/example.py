@@ -1,6 +1,8 @@
 import sys
 sys.path.append('..')
 from src import *
+import timeit
+import trueskill as ts
 
 # Code 1
 mu = 0.0; sigma = 6.0; beta = 1.0; gamma = 0.0
@@ -12,6 +14,7 @@ team_a = [ p1, p2 ]
 team_b = [ p3, p4 ]
 teams = [team_a, team_b]
 g = Game(teams)
+time_tt = timeit.timeit(lambda: Game(teams).posteriors, number=1000)/1000
 # g = Game(teams, [0,0])
 
 # Code 3
@@ -32,6 +35,7 @@ tc = [p4]
 teams = [ta, tb, tc]
 result = [1, 0, 0]
 g = Game(teams, result, p_draw=0.25)
+time_tt = timeit.timeit(lambda: Game(teams, result, p_draw=0.25).posteriors, number=1000)/1000
 
 # Code 6
 c1 = [["a"],["b"]]
@@ -39,7 +43,9 @@ c2 = [["b"],["c"]]
 c3 = [["c"],["a"]]
 composition = [c1, c2, c3]
 h = History(composition)
+time_tt = timeit.timeit(lambda: History(composition), number=1000)/1000
 h.convergence()
+time_tt = timeit.timeit(lambda: h.convergence(iterations=1, verbose=False), number=10)/10
 
 # Code 7
 lc = h.learning_curves()
@@ -92,8 +98,27 @@ df.to_csv("output/logisitcs_mu.csv", index=False)
 #plt.plot(agent)
 #plt.show()
 
+import time
+start = time.time()
+h = History(composition, results, times, priors, mu=2.0, gamma=0.015)
+end = time.time()
+end - start
+start = time.time()
+h.convergence(iterations=1)
+end = time.time()
+end - start
+
+time_tt = timeit.timeit(lambda: History(composition, results, times, priors, mu=2.0, gamma=0.015), number=10)/10
+time_tt = timeit.timeit(lambda: h.convergence(iterations=1), number=10)/10
 
 
 
+env = ts.TrueSkill(mu = mu, sigma = sigma, beta = beta, tau= gamma, draw_probability=0.0)
+r1 = env.Rating(); r2 = env.Rating(); r3 = env.Rating(); r4 = env.Rating()
+time_tt = timeit.timeit(lambda: env.rate([[r1,r2],[r3,r4]]), number=10000)/10000
 
+env = ts.TrueSkill(mu = mu, sigma = sigma, beta = beta, tau= gamma, draw_probability=0.25)
+r1 = env.Rating(); r2 = env.Rating(); r3 = env.Rating(); r4 = env.Rating()
+time_tt = timeit.timeit(lambda: env.rate([[r1],[r2,r3],[r4]],[0,1,1]), number=10000)/10000
+ 
 
