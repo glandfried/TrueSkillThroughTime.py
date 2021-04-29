@@ -9,12 +9,8 @@ commercial, you should find another rating system.
 References
 ==========
 
-The core ideas used in this project were described in
-"TrueSkill (TM): A Bayesian Skill Rating System" available at
-http://research.microsoft.com/apps/pubs/default.aspx?id=67956
-
-Our implementation attempts to respect the class structures
-used by Heungsub Lee at https://github.com/sublee/trueskill
+The core ideas implemented in this project were developed in
+"[TrueSkill Through Time: Revisiting the History of Chess](https://www.microsoft.com/en-us/research/publication/trueskill-through-time-revisiting-the-history-of-chess/)"
 
 License
 =======
