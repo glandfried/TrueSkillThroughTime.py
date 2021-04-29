@@ -22,6 +22,8 @@ With these default values we create four identical players.
 
 The `Gaussian` class is used to model the standard operations of Gaussian distributions including multiplication, summation, division, and substraction.
 
+### Games
+
 In the next step we create a game with two teams of two players.
 
 ```
