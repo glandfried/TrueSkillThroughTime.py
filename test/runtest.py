@@ -372,8 +372,8 @@ class tests(unittest.TestCase):
     def test_env_0_TTT(self):
         composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
         results = [[1,0],[0,1],[1,0]]
-        h = ttt.History(composition=composition, results=results, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
-        step , i = h.convergence()
+        h = ttt.History(composition=composition, results=results, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05)
+        step , i = h.convergence(iterations=100)
         self.assertAlmostEqual(h.batches[0].posterior("a").mu,0.001,3)
         self.assertAlmostEqual(h.batches[0].posterior("a").sigma,2.395,3)
         self.assertAlmostEqual(h.batches[0].posterior("b").mu,-0.001,3)
@@ -382,8 +382,8 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(h.batches[2].posterior("b").sigma,2.396,3)
         
         composition = [ [["a"],["b"]], [["c"],["a"]] , [["b"],["c"]] ]
-        h = ttt.History(composition=composition, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
-        step , i = h.convergence()
+        h = ttt.History(composition=composition, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05)
+        step , i = h.convergence(iterations=100)
         self.assertAlmostEqual(h.batches[0].posterior("a").mu,0.001,3)
         self.assertAlmostEqual(h.batches[0].posterior("a").sigma,2.395,3)
         self.assertAlmostEqual(h.batches[0].posterior("b").mu,-0.001,3)
@@ -446,7 +446,7 @@ class tests(unittest.TestCase):
     
         composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
         results = [[1,0],[0,1],[1,0]]
-        h = ttt.History(composition =composition, results=results, times = [0, 10, 20], mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
+        h = ttt.History(composition =composition, results=results, times = [0, 10, 20], mu=0.0,sigma=6.0, beta=1.0, gamma=0.05)
         self.assertEqual( summarysize(h) < 13000 , True)
         self.assertEqual( summarysize(h.batches) - summarysize(h.agents) < 10000, True )
         self.assertEqual( summarysize(h.agents) < 3000, True )
