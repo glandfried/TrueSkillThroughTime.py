@@ -1,4 +1,4 @@
-all: ChessAnalysis.zip summary_filtered.zip 
+all: history.csv 
 
 ChessAnalysis.zip:
 	#  Blog 2008
@@ -16,7 +16,7 @@ summary_filtered.zip:
 	wget https://github.com/glandfried/centrality-ogs-dataset/releases/download/v0.0/summary_filtered.zip
 	unzip summary_filtered.zip
 
-history.zip:
+history.csv:
 	wget https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip
 	unzip history.csv.zip
 
