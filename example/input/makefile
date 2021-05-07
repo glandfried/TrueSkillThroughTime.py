@@ -1,4 +1,4 @@
-all: history.csv 
+all: history.csv summary_filtered.csv
 
 ChessAnalysis.zip:
 	#  Blog 2008
@@ -12,13 +12,15 @@ ChessAnalysis.zip:
 	#xbuild /p:Configuration=Release ChessAnalysis.fsproj
 	#mono bin/Release/ChessAnalysis.exe -out output.csv SmallChessBase.csv
 
-summary_filtered.zip:
+summary_filtered.csv:
 	wget https://github.com/glandfried/centrality-ogs-dataset/releases/download/v0.0/summary_filtered.zip
 	unzip summary_filtered.zip
+	rm summary_filtered.zip 
 
 history.csv:
 	wget https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip
 	unzip history.csv.zip
+	rm history.csv.zip
 
 
 
