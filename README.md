@@ -7,6 +7,16 @@ The use of an efficient algorithm, that requires only a few linear iterations ov
 
 A full scientific documentation is discribed at [TrueSkill Through Time: the Julia, Python and R packages](https://github.com/glandfried/TrueSkillThroughTime/).
 
+### Installing
+
+The package is available in [PyPI](https://pypi.org/search/?q=trueskillthroughtime):
+
+`python3 -m pip install trueskillthroughtime`
+
+### Import
+
+`import trueskillthroughtime as ttt`
+
 ### Parameters
 
 In the following code we define the variables that we will use later, assigning the default values of the packages.
@@ -141,7 +151,7 @@ mu = [tp[1].mu for tp in h.learning_curves()["a"]]
 In this code we define four variables to instantiate the class `History`: the `composition` contains 1000 games between the target player and different opponents; the `results` are obtained randomly, sampling the performance of the players; the `time` is a list of integer ranging from 0 to 999 representing the time of each game; and `priors` is a dictionary used to customize player attributes (we assign low uncertainty to the opponents' priors pretending that we know their skills beforehand).
 The Figure shows the evolution of the true (solid line) and estimated (dotted line) learning curves of the target player.
 
-![synthetic](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/logistic0.png)
+![](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/logistic0.png)
 
 The estimated learning curves remain close to the actual skill during the whole evolution.
 
@@ -167,7 +177,7 @@ h.convergence(epsilon=0.01, iterations=10)
 In this code we open the file `atp.csv`, create the variables `dates` and `matches`, and instantiate the class `History`.
 The following figure presents the learning curves of some famous players in ATP history.
 
-![atp](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp.png)
+![](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp.png)
 
 Those who know the history of tennis will be able to recognize the periods of crisis, stability and success of the players.
 
@@ -189,8 +199,8 @@ One option is to keep one skill variable per player, that we include in all game
 
 In the following figures we show the skill difference that Nadal and Djokovic have in each of the three types of ground.
 
-![n](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp_ground0.png)
-![d](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp_ground2.png)
+![](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp_ground0.png)
+![](https://github.com/glandfried/TrueSkillThroughTime.py/blob/master/static/atp_ground2.png)
 
 We can see that Nadal has a big skill difference between grounds, unlike Djokovic who has very similar skills on all three types of ground.
 The Nadal's skill difference between clay and grass gorunds is greater than one ponit, which means at least 76% difference in probability of winning compared to itself.
