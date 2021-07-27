@@ -1,7 +1,7 @@
 import pandas as pd
 import sys
 sys.path.append('..')
-from src import *
+from trueskillthroughtime import *
 import time
 from datetime import datetime
 

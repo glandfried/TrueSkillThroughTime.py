@@ -1,7 +1,7 @@
 import unittest
 import sys
 sys.path.append('..')
-import src as ttt
+import trueskillthroughtime as ttt
 from importlib import reload  # Python 3.4+ only.
 reload(ttt)
 import math

@@ -1,6 +1,6 @@
 import sys
 sys.path.append('..')
-from src import *
+from trueskillthroughtime import *
 import timeit
 
 print("Code 1")
