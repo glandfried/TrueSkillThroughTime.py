@@ -2,20 +2,12 @@
 """
    Trueskill Through Time
    ~~~~~~~~~
-   :copyright: (c) 2019-2020 by Gustavo Landfried.
+   :copyright: (c) 2019-2021 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """
-import math
-import timeit
-from numba import njit, types, typed
-#import ipdb
-#import trueskill as ts
 
-"""
-Optimize:
-    - Numba have several problems with jitclass
-    - c++ may be a better solution
-"""
+import math
+from numba import njit, types, typed
 
 BETA = 1.0
 MU = 0.0
@@ -41,8 +33,6 @@ def erfc(x):
     r = t * math.exp(-z * z - 1.26551223 + t * h)
     return r if not(x<0) else 2.0 - r 
 
-#timeit.timeit(lambda: erfc(0.9) , number=10000)/10000
-
 @njit(types.f8(types.f8))
 def erfcinv(y):
     if y >= 2: return -inf
@@ -55,8 +45,6 @@ def erfcinv(y):
         err = erfc(x) - y
         x += err / (1.12837916709551257 * math.exp(-(x**2)) - x * err)
     return x if (y < 1) else -x
-
-#timeit.timeit(lambda: erfcinv(0.9) , number=10000)/10000
 
 @njit(types.UniTuple(types.f8, 2)(types.f8,types.f8))
 def tau_pi(mu,sigma):
@@ -82,8 +70,6 @@ def mu_sigma(tau_,pi_):
         mu = 0.0
     return mu, sigma
         
-#timeit.timeit(lambda: mu_sigma(1.0,2.0) , number=10000)/10000
-
 @njit(types.f8(types.f8,types.f8,types.f8))
 def cdf(x, mu=0, sigma=1):
     z = -(x - mu) / (sigma * sqrt2)
@@ -123,10 +109,6 @@ def trunc(mu, sigma, margin, tie):
 def approx(N, margin, tie):
     mu, sigma = trunc(N.mu, N.sigma, margin, tie)
     return Gaussian(mu, sigma)
-
-#timeit.timeit(lambda: trunc(1.0,2.0,0.0,False), number=10000)/10000
-
-
 
 @njit(types.f8(types.f8,types.f8))
 def compute_margin(p_draw, sd):
@@ -196,8 +178,6 @@ class Gaussian(object):
     def isapprox(self, M, tol=1e-4):
         return (abs(self.mu - M.mu) < tol) and (abs(self.sigma - M.sigma) < tol)
     
-#timeit.timeit(lambda: Gaussian(1.0,2.0) , number=10000)/10000
-
 N01 = Gaussian(0,1)
 N00 = Gaussian(0,0)
 Ninf = Gaussian(0,inf)
@@ -365,18 +345,6 @@ class Game(object):
     def posteriors(self):
         return [[ self.likelihoods[e][i] * self.teams[e][i].prior for i in range(len(self.teams[e]))] for e in range(len(self))]
 
-#ta = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
-#tb = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
-#tc = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
-#td = [Player(Gaussian(0,1)),Player(Gaussian(0,1)),Player(Gaussian(0,1))]
-#time_tt = timeit.timeit(lambda: Game([ta,tb],[1,0]).posteriors, number=10000)/10000
-#ta = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
-#tb = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
-#tc = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
-#td = [ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1)),ts.Player(Gaussian(0,1))]
-#time_ts = timeit.timeit(lambda: ts.rate([ta,tb],[1,0]), number=10000)/10000
-#time_ts/time_tt
-
 class Skill(object):
     def __init__(self, forward=Ninf, backward=Ninf, likelihood=Ninf, elapsed=0):
         self.forward = forward
@@ -517,15 +485,6 @@ class Batch(object):
             self.skills[a].forward = self.agents[a].receive(self.skills[a].elapsed) 
         return self.iteration()
 
-#agents = dict()
-#for k in ["a", "b", "c", "d", "e", "f"]:
-    #agents[k] = Agent(Player(Gaussian(25., 25.0/3), 25.0/6, 25.0/300 ) , Ninf, -inf)
-
-#composition = [ [["a"],["b"]], [["c"],["d"]] , [["e"],["f"]] ]
-#results = [[0,1],[1,0],[0,1]]
-#batch = Batch(composition = composition, results = results, time = 0, agents = agents)
-#timeit.timeit(lambda: Batch(composition = composition, results = results, time = 0, agents = agents), number=10000)/10000
-
 class History(object):
     def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW):
         if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
@@ -607,20 +566,3 @@ class History(object):
         return res
     def log_evidence(self):
         return sum([math.log(event.evidence) for b in self.batches for event in b.events])
-
-#composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
-#results = [[0,1],[1,0],[0,1]]
-#h = History(composition=composition, results=results, mu=0.0,sigma=6.0, beta=1.0, gamma=0.05, iterations=100)
-#h.convergence(True)
-
-#timeit.timeit(lambda: History(composition=composition, results=results, iterations = 100), number=10000)/10000
-
-
-#ta = [Player(Gaussian(1.139,0.531),1.0,0.2125)]
-#tb = [Player(Gaussian(15.568,0.51),1.0,0.2125)]
-
-#g = Game([ta,tb], [1,0], 0.0)
-#type(N00) == Gaussian 
-#timeit.timeit(lambda: isinstance(N00,Gaussian), number=10000)/10000
-#timeit.timeit(lambda: type(N00) == Gaussian, number=10000)/10000
-#timeit.timeit(lambda: Gaussian(0,0), number=10000)/10000

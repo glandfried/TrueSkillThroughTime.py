@@ -1,8 +1,6 @@
 *
 !*/
-old/
-test/versions/
-!test/versions/makefile
+*.egg-info/
 
 ########################
 # Archivos que NO ignora
@@ -17,7 +15,6 @@ test/versions/
 !*.bst
 !*.sty
 !*.cls
-tikzlibrarybayesnet.code.tex
 
 ## Codigo
 !*.py
@@ -32,13 +29,10 @@ tikzlibrarybayesnet.code.tex
 ## Otros
 !makefile
 !Makefile
+
+## Git
 !.keep
 !.gitignore
 
-#########################
-# Carpetas que SI ignora
-
-#########################
-# Nombre de archivo o carpeta que SIEMPRE ignora
-
-*-ignore* 
+# Python
+!*.cfg
