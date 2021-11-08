@@ -273,6 +273,10 @@ class Game(object):
     def performance(self,i):
         return performance(self.teams[i])    
     
+    def partial_evidence(self, d, margin, tie, e):
+        mu, sigma = d[e].prior.mu, d[e].prior.sigma
+        self.evidence *= cdf(margin[e],mu,sigma)-cdf(-margin[e],mu,sigma) if tie[e] else 1-cdf(margin[e],mu,sigma)
+    
     def graphical_model(self):
         g = self 
         r = g.result if len(g.result) > 0 else [i for i in range(len(g.teams)-1,-1,-1)] 
@@ -282,14 +286,12 @@ class Game(object):
         tie = [r[o[e]]==r[o[e+1]] for e in range(len(d))]
         margin = [0.0 if g.p_draw==0.0 else compute_margin(g.p_draw, math.sqrt( sum([a.beta**2 for a in g.teams[o[e]]]) + sum([a.beta**2 for a in g.teams[o[e+1]]]) )) for e in range(len(d))] 
         g.evidence = 1.0
-        for e in range(len(d)):
-            mu, sigma = d[e].prior.mu, d[e].prior.sigma
-            g.evidence *= cdf(margin[e],mu,sigma)-cdf(-margin[e],mu,sigma) if tie[e] else 1-cdf(margin[e],mu,sigma)
         return o, t, d, tie, margin
     
     def likelihood_analitico(self):
         g = self
         o, t, d, tie, margin = g.graphical_model()
+        g.partial_evidence(d, margin, tie, 0)
         d = d[0].prior
         mu_trunc, sigma_trunc =  trunc(d.mu, d.sigma, margin[0], tie[0])
         if d.sigma==sigma_trunc:
@@ -317,18 +319,21 @@ class Game(object):
             step = (0., 0.)
             for e in range(len(d)-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
+                if (i==0): g.partial_evidence(d, margin, tie, e)
                 d[e].likelihood = approx(d[e].prior,margin[e],tie[e])/d[e].prior
                 likelihood_lose = t[e].posterior_win - d[e].likelihood
                 step = max_tuple(step,t[e+1].likelihood_lose.delta(likelihood_lose))
                 t[e+1].likelihood_lose = likelihood_lose
             for e in range(len(d)-1,0,-1):
                 d[e].prior = t[e].posterior_win - t[e+1].posterior_lose
+                if (i==0) and (e==len(d)-1): g.partial_evidence(d, margin, tie, e)
                 d[e].likelihood = approx(d[e].prior,margin[e],tie[e])/d[e].prior
                 likelihood_win = t[e+1].posterior_lose + d[e].likelihood
                 step = max_tuple(step,t[e].likelihood_win.delta(likelihood_win))
                 t[e].likelihood_win = likelihood_win
             i += 1
         if len(d)==1:
+            g.partial_evidence(d, margin, tie, 0)
             d[0].prior = t[0].posterior_win - t[1].posterior_lose
             d[0].likelihood = approx(d[0].prior,margin[0],tie[0])/d[0].prior
         t[0].likelihood_win = t[1].posterior_lose + d[0].likelihood
