@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'TrueSkillThroughTime.py'
+project = 'TrueSkillThroughTime'
 copyright = '2021, Gustavo Landfried'
 author = 'Gustavo Landfried'
 
