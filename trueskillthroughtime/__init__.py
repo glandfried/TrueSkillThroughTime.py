@@ -133,6 +133,17 @@ def dict_diff(old, new):
     return step
 
 class Gaussian(object):
+    """
+    The `Gaussian` class is used to define the prior beliefs of the agents' skills
+    
+    Attributes
+    ----------
+    mu : float
+        the mean of the `Gaussian` distribution.
+    sigma :
+        the standar deviation of the `Gaussian` distribution.
+        
+    """
     def __init__(self,mu=MU, sigma=SIGMA):
         if sigma >= 0.0:
             self.mu, self.sigma = mu, sigma
