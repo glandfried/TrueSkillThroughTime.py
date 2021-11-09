@@ -20,11 +20,13 @@
 !*.py
 !*.R
 !*.c
+!*.jl
+!*.sh
 
 ## Texto
 !*.md
 !*.txt
-!*.sh
+!*.rst
 
 ## Otros
 !makefile
@@ -36,3 +38,4 @@
 
 # Python
 !*.cfg
+!*.bat
