@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Causal model &#8212; TrueSkillThroughTime 0.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="The Gaussian class" href="gaussian.html" />
+    <link rel="prev" title="TrueSkillThroughTime.py" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="causal-model">
+<h1>Causal model<a class="headerlink" href="#causal-model" title="Permalink to this headline">¶</a></h1>
+<p>Knowing how individual skills change over time is essential in many areas.
+Since skills are hidden variables, the best we can do is estimating them based on its direct observable consequences: the outcome of problem-solving and competitions.
+Considering only the frequency of positive results as an indicator of the individuals’ ability could lead to wrong approximations, mainly because the outcome also depends on the difficulty of the challenge.
+For this reason, all widely used skill estimators are based on pairwise comparisons.
+All currently used skill estimators share some variant of the following causal model:</p>
+<img alt="../_images/elo.png" src="../_images/elo.png" />
+<p>This is a generative model in which skills (<span class="math notranslate nohighlight">\(s\)</span>) cause the observable results (<span class="math notranslate nohighlight">\(r\)</span>) mediated by the difference of hidden performances, <span class="math notranslate nohighlight">\(d =p_i - p_j\)</span>.
+Even if the skills are constant at a given point in time, the performances are random variables around their unknown true skill, <span class="math notranslate nohighlight">\(p \sim \mathcal{N}(s,\beta^2)\)</span>.
+The model assumes that the agent with the highest performance wins, <span class="math notranslate nohighlight">\(r = (d &gt; 0)\)</span>.
+Observable variables are painted gray, hidden are transparent, and constants are shown as dots.</p>
+<div class="section" id="the-scale-of-estimates">
+<h2>The scale of estimates<a class="headerlink" href="#the-scale-of-estimates" title="Permalink to this headline">¶</a></h2>
+<p>The standard deviation of performances <span class="math notranslate nohighlight">\(\beta\)</span>, is the same for all the agents, acts as the scale of the estimates.
+A real skill difference of one beta between two agents is equivalent to 76% probability of winning in favor of the stronger agent.
+For this reason we choose the default value to be 1.</p>
+</div>
+<div class="section" id="the-prior">
+<h2>The Prior<a class="headerlink" href="#the-prior" title="Permalink to this headline">¶</a></h2>
+<p>The causal model assumes that, at a given time, the skills are constant. However, we do not know this value.
+To represent our uncertainty we use a Gaussian distribution.</p>
+<p><span class="math notranslate nohighlight">\(p(s) = \mathcal{N}(\mu, \sigma^2)\)</span></p>
+<ul class="simple">
+<li><p>The initial mean (<span class="math notranslate nohighlight">\(\mu\)</span>) can be freely chosen because it is the difference of skills that matters and not its absolute value.</p></li>
+</ul>
+<ul class="simple">
+<li><p>The prior’s standard deviation ($sigma$) must be sufficiently large to include all possible skill hypotheses. For this reason we chose it to be 6 times larger than the standard deviation of the performance.</p></li>
+</ul>
+</div>
+<div class="section" id="the-dynamic-factor">
+<h2>The dynamic factor<a class="headerlink" href="#the-dynamic-factor" title="Permalink to this headline">¶</a></h2>
+<p>Since skills change over time, it is important to incorporate some uncertainty (<span class="math notranslate nohighlight">\(\gamma\)</span>) after each time step.</p>
+<p><span class="math notranslate nohighlight">\(p(s_{t}) = \mathcal{N}(s_{t} | \mu_{{t-1}}, \, \sigma_{{t-1}}^2 + \gamma^2 )\)</span></p>
+<p>where <span class="math notranslate nohighlight">\(\mu_{t-1}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{t-1}\)</span> are the mean and standard deviation of the skill estimate at the previous time.
+As its optimal value is generally relatively low, we chose the default value to be 3% of the standard deviation of the performances.</p>
+</div>
+<div class="section" id="the-draw-probability">
+<h2>The draw probability<a class="headerlink" href="#the-draw-probability" title="Permalink to this headline">¶</a></h2>
+<p>A rule of thumb states that the probability of a draw must be initialized with the observed frequency of draws.
+If in doubt, it is a candidate parameter to be optimized or integrated by the sum rule.
+It is used to compute the prior probability of the observed result, so its value may affect an eventual model selection task.
+The default value is 0.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">TrueSkillThroughTime</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Causal model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gaussian.html">The <cite>Gaussian</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="player.html">The <cite>Player</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="game.html">The <cite>Game</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">The <cite>History</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Real examples</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">TrueSkillThroughTime.py</a></li>
+      <li>Next: <a href="gaussian.html" title="next chapter">The <cite>Gaussian</cite> class</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Gustavo Landfried.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="../_sources/man/causal.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
