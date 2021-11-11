@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-   Trueskill Through Time
-   ~~~~~~~~~
+   TrueskillThroughTime.py
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~
    :copyright: (c) 2019-2021 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """
@@ -9,6 +9,15 @@
 import math
 from numba import njit, types, typed
 
+
+
+__all__ = [
+    'MU', 'SIGMA', 'BETA', 'GAMMA', 'P_DRAW', 'EPSILON', 'ITERATIONS',
+    'Gaussian', 'Player', 'Game', 'History'
+]
+
+
+#: The default standar deviation of the performances. Is the scale of estimates.
 BETA = 1.0
 MU = 0.0
 SIGMA = BETA * 6
