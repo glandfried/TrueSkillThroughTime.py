@@ -1,0 +1,627 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrueSkillThroughTime 0.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="trueskillthroughtime-py">
+<h1>TrueSkillThroughTime.py<a class="headerlink" href="#trueskillthroughtime-py" title="Permalink to this headline">¶</a></h1>
+<p><strong>The state-of-the-art skill model</strong>: <em>Individual learning curves with reliable initial estimates and guaranteed comparability between distant estimates.</em></p>
+<div class="section" id="install">
+<h2>Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 -m pip install trueskillthroughtime
+</pre></div>
+</div>
+<p>The we can use it.</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">trueskillthroughtime</span> <span class="k">as</span> <span class="nn">ttt</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>To appreciate the advantages of TrueSkill Through Time, scroll down to subsection <a class="reference internal" href="#sec-ilustration"><span class="std std-ref">Ilustration</span></a></p></li>
+<li><p>To quickly see how to use the package, scroll down to subsection <a class="reference internal" href="#sec-first-examples"><span class="std std-ref">First examples</span></a>.</p></li>
+</ul>
+</div>
+<div class="section" id="index">
+<h2>Index<a class="headerlink" href="#index" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<span id="document-man/causal"></span><div class="section" id="causal-model">
+<h3>Causal model<a class="headerlink" href="#causal-model" title="Permalink to this headline">¶</a></h3>
+<p>Knowing how individual skills change over time is essential in many areas.
+Since skills are hidden variables, the best we can do is estimating them based on its direct observable consequences: the outcome of problem-solving and competitions.
+Considering only the frequency of positive results as an indicator of the individuals’ ability could lead to wrong approximations, mainly because the outcome also depends on the difficulty of the challenge.
+For this reason, all widely used skill estimators are based on pairwise comparisons.
+All currently used skill estimators share some variant of the following causal model:</p>
+<img alt="_images/elo.png" src="_images/elo.png" />
+<p>This is a generative model in which skills (<span class="math notranslate nohighlight">\(s\)</span>) cause the observable results (<span class="math notranslate nohighlight">\(r\)</span>) mediated by the difference of hidden performances, <span class="math notranslate nohighlight">\(d =p_i - p_j\)</span>.
+Even if the skills are constant at a given point in time, the performances are random variables around their unknown true skill, <span class="math notranslate nohighlight">\(p \sim \mathcal{N}(s,\beta^2)\)</span>.
+The model assumes that the agent with the highest performance wins, <span class="math notranslate nohighlight">\(r = (d &gt; 0)\)</span>.
+Observable variables are painted gray, hidden are transparent, and constants are shown as dots.</p>
+<div class="section" id="the-scale-of-estimates">
+<h4>The scale of estimates<a class="headerlink" href="#the-scale-of-estimates" title="Permalink to this headline">¶</a></h4>
+<p>The standard deviation of performances <span class="math notranslate nohighlight">\(\beta\)</span>, is the same for all the agents, acts as the scale of the estimates.
+A real skill difference of one beta between two agents is equivalent to 76% probability of winning in favor of the stronger agent.
+For this reason we choose the default value to be 1.</p>
+</div>
+<div class="section" id="the-prior">
+<h4>The Prior<a class="headerlink" href="#the-prior" title="Permalink to this headline">¶</a></h4>
+<p>The causal model assumes that, at a given time, the skills are constant. However, we do not know this value.
+To represent our uncertainty we use a Gaussian distribution.</p>
+<p><span class="math notranslate nohighlight">\(p(s) = \mathcal{N}(\mu, \sigma^2)\)</span></p>
+<ul class="simple">
+<li><p>The initial mean (<span class="math notranslate nohighlight">\(\mu\)</span>) can be freely chosen because it is the difference of skills that matters and not its absolute value.</p></li>
+</ul>
+<ul class="simple">
+<li><p>The prior’s standard deviation ($sigma$) must be sufficiently large to include all possible skill hypotheses. For this reason we chose it to be 6 times larger than the standard deviation of the performance.</p></li>
+</ul>
+</div>
+<div class="section" id="the-dynamic-factor">
+<h4>The dynamic factor<a class="headerlink" href="#the-dynamic-factor" title="Permalink to this headline">¶</a></h4>
+<p>Since skills change over time, it is important to incorporate some uncertainty (<span class="math notranslate nohighlight">\(\gamma\)</span>) after each time step.</p>
+<p><span class="math notranslate nohighlight">\(p(s_{t}) = \mathcal{N}(s_{t} | \mu_{{t-1}}, \, \sigma_{{t-1}}^2 + \gamma^2 )\)</span></p>
+<p>where <span class="math notranslate nohighlight">\(\mu_{t-1}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{t-1}\)</span> are the mean and standard deviation of the skill estimate at the previous time.
+As its optimal value is generally relatively low, we chose the default value to be 3% of the standard deviation of the performances.</p>
+</div>
+<div class="section" id="the-draw-probability">
+<h4>The draw probability<a class="headerlink" href="#the-draw-probability" title="Permalink to this headline">¶</a></h4>
+<p>A rule of thumb states that the probability of a draw must be initialized with the observed frequency of draws.
+If in doubt, it is a candidate parameter to be optimized or integrated by the sum rule.
+It is used to compute the prior probability of the observed result, so its value may affect an eventual model selection task.
+The default value is 0.</p>
+</div>
+</div>
+<span id="document-man/gaussian"></span><div class="section" id="the-gaussian-class">
+<h3>The <cite>Gaussian</cite> class<a class="headerlink" href="#the-gaussian-class" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="code docutils literal notranslate"><span class="pre">Gaussian</span></code> class does most of the computation of the packages.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.Gaussian">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">Gaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trueskillthroughtime.Gaussian" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The default value are <code class="code docutils literal notranslate"><span class="pre">MU</span> <span class="pre">=</span> <span class="pre">0.0</span></code> and <code class="code docutils literal notranslate"><span class="pre">SIGMA</span> <span class="pre">=</span> <span class="pre">6.0</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span>
+<span class="go">N(mu=0.000, sigma=6.000)</span>
+</pre></div>
+</div>
+<p>Others ways to create <code class="code docutils literal notranslate"><span class="pre">Gaussian</span></code> objects</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">sigma</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Ninf</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span><span class="n">ttt</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span><span class="o">.</span><span class="n">mu</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span><span class="o">.</span><span class="n">sigma</span>
+<span class="go">1.0</span>
+</pre></div>
+</div>
+<p>The class overwrites the addition <code class="code docutils literal notranslate"><span class="pre">+</span></code>, subtraction <code class="code docutils literal notranslate"><span class="pre">-</span></code>, product <code class="code docutils literal notranslate"><span class="pre">*</span></code>, and division <code class="code docutils literal notranslate"><span class="pre">/</span></code> to compute the marginal distributions used in the TrueSkill Through Time model.</p>
+<div class="section" id="product">
+<h4>Product <code class="code docutils literal notranslate"><span class="pre">*</span></code><a class="headerlink" href="#product" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\mathcal{N}(x|\mu_1,\sigma_1^2)\mathcal{N}(x|\mu_2,\sigma_2^2) \propto \mathcal{N}(x|\mu_{*},\sigma_{*}^2)\)</span></p></li>
+</ul>
+<p>with <span class="math notranslate nohighlight">\(\frac{\mu_{*}}{\sigma_{*}^2} = \frac{\mu_1}{\sigma_1^2} + \frac{\mu_2}{\sigma_2^2}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{*}^2 = (\frac{1}{\sigma_1^2} + \frac{1}{\sigma_2^2})^{-1}\)</span>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">*</span> <span class="n">N12</span>
+<span class="go">N(mu=0.900, sigma=1.897)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">*</span> <span class="n">Ninf</span>
+<span class="go">N(mu=1.000, sigma=2.000)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="division">
+<h4>Division <code class="code docutils literal notranslate"><span class="pre">/</span></code><a class="headerlink" href="#division" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\mathcal{N}(x|\mu_1,\sigma_1^2)/\mathcal{N}(x|\mu_2,\sigma_2^2) \propto \mathcal{N}(x|\mu_{\div},\sigma_{\div}^2)\)</span></p></li>
+</ul>
+<p>with <span class="math notranslate nohighlight">\(\frac{\mu_{\div}}{\sigma_{\div}^2} = \frac{\mu_1}{\sigma_1^2} - \frac{\mu_2}{\sigma_2^2}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{\div}^2 = (\frac{1}{\sigma_1^2} - \frac{1}{\sigma_2^2})^{-1}\)</span>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">/</span> <span class="n">N06</span>
+<span class="go">N(mu=1.125, sigma=2.121)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">/</span> <span class="n">Ninf</span>
+<span class="go">N(mu=1.000, sigma=2.000)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="addition">
+<h4>Addition <code class="code docutils literal notranslate"><span class="pre">+</span></code><a class="headerlink" href="#addition" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\iint \delta(t=x + y) \mathcal{N}(x|\mu_1, \sigma_1^2)\mathcal{N}(y|\mu_2, \sigma_2^2) dxdy =  \mathcal{N}(t|\mu_1+\mu_2,\sigma_1^2 + \sigma_2^2)\)</span></p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">+</span> <span class="n">N12</span>
+<span class="go">N(mu=1.000, sigma=6.325)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="substraction">
+<h4>Substraction <code class="code docutils literal notranslate"><span class="pre">-</span></code><a class="headerlink" href="#substraction" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\iint \delta(t=x - y) \mathcal{N}(x|\mu_1, \sigma_1^2)\mathcal{N}(y|\mu_2, \sigma_2^2) dxdy =  \mathcal{N}(t|\mu_1-\mu_2,\sigma_1^2 + \sigma_2^2)\)</span></p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">-</span> <span class="n">N12</span>
+<span class="go">N(mu=-1.000, sigma=6.325)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="others-methods">
+<h4>Others methods<a class="headerlink" href="#others-methods" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span><span class="o">-</span><span class="n">N12</span> <span class="o">==</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">mu</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">6.324555</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">N06</span><span class="o">-</span><span class="n">N12</span><span class="p">)</span><span class="o">.</span><span class="n">isapprox</span><span class="p">(</span><span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">mu</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">6.324555</span><span class="p">),</span> <span class="mf">1e-6</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span><span class="o">.</span><span class="n">forget</span><span class="p">(</span><span class="n">gamma</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">N(mu=1.000, sigma=2.236)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<span id="document-man/player"></span><div class="section" id="the-player-class">
+<h3>The <cite>Player</cite> class<a class="headerlink" href="#the-player-class" title="Permalink to this headline">¶</a></h3>
+<p>The features of the agents are defined within class <code class="code docutils literal notranslate"><span class="pre">Player</span></code>: the prior Gaussian distribution characterized by the mean (<code class="code docutils literal notranslate"><span class="pre">mu</span></code>) and the standard deviation (<code class="code docutils literal notranslate"><span class="pre">sigma</span></code>), the standard deviation of the performance (<code class="code docutils literal notranslate"><span class="pre">beta</span></code>), and the dynamic uncertainty of the skill (<code class="code docutils literal notranslate"><span class="pre">gamma</span></code>).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.Player">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">Player</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">N(mu=0.000,</span> <span class="pre">sigma=6.000)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.03</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_draw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">N(mu=0.000,</span> <span class="pre">sigma=inf)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trueskillthroughtime.Player" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The default value of <code class="code docutils literal notranslate"><span class="pre">MU</span> <span class="pre">=</span> <span class="pre">0.0</span></code>, <code class="code docutils literal notranslate"><span class="pre">SIGMA</span> <span class="pre">=</span> <span class="pre">6.0</span></code>, <code class="code docutils literal notranslate"><span class="pre">BETA</span> <span class="pre">=</span> <span class="pre">1.0</span></code>, <code class="code docutils literal notranslate"><span class="pre">GAMMA</span> <span class="pre">=</span> <span class="pre">0.03</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a1</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a1</span>
+<span class="go">Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a2</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">(</span><span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a2</span>
+<span class="go">Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)</span>
+</pre></div>
+</div>
+<p>We can also create special players who have non-random performances <code class="code docutils literal notranslate"><span class="pre">beta</span> <span class="pre">=</span> <span class="pre">0.0</span></code>, and whose skills do not change over time <code class="code docutils literal notranslate"><span class="pre">gamma=0.0</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a3</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a3</span><span class="o">.</span><span class="n">beta</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a3</span><span class="o">.</span><span class="n">gamma</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+<div class="section" id="performance">
+<h4>Performance<a class="headerlink" href="#performance" title="Permalink to this headline">¶</a></h4>
+<p>The performances <code class="code docutils literal notranslate"><span class="pre">p</span></code> are random variables around their unknown true skill <code class="code docutils literal notranslate"><span class="pre">s</span></code>,</p>
+<p><span class="math notranslate nohighlight">\(p \sim \mathcal{N}(s,\beta^2)\)</span></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a2</span><span class="o">.</span><span class="n">performance</span><span class="p">()</span>
+<span class="go">N(mu=0.000, sigma=1.414)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a3</span><span class="o">.</span><span class="n">performance</span><span class="p">()</span>
+<span class="go">N(mu=0.000, sigma=6.000)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<span id="document-man/game"></span><div class="section" id="the-game-class">
+<h3>The <cite>Game</cite> class<a class="headerlink" href="#the-game-class" title="Permalink to this headline">¶</a></h3>
+<p>We use the <cite>Game</cite> class to model events and perform inference.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.Game">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">Game</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">teams</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_draw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trueskillthroughtime.Game" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Let us return to the example seen on the first page of this manual.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a1</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a2</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a3</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a4</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_a</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_b</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a3</span><span class="p">,</span> <span class="n">a4</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Game</span><span class="p">([</span><span class="n">team_a</span><span class="p">,</span> <span class="n">team_b</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">teams</span>
+<span class="go">[[Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030), Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)], [Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030), Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)]]</span>
+</pre></div>
+</div>
+<p>where the teams’ order in the list implicitly defines the game’s result: the teams appearing first in the list (lower index) beat those appearing later (higher index).</p>
+<div class="section" id="evidence-and-likelihood">
+<h4>Evidence and likelihood<a class="headerlink" href="#evidence-and-likelihood" title="Permalink to this headline">¶</a></h4>
+<p>During the initialization, the <code class="code docutils literal notranslate"><span class="pre">Game</span></code> class computes the prior prediction of the observed result (the <code class="code docutils literal notranslate"><span class="pre">evidence</span></code> atribute) and the approximate likelihood of each player (the <code class="code docutils literal notranslate"><span class="pre">likelihoods</span></code> atribute).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">likelihoods</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">round</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">evidence</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="go">0.5</span>
+</pre></div>
+</div>
+<p>In this case, the evidence is <code class="code docutils literal notranslate"><span class="pre">0.5</span></code> because both teams had the same prior skill estimates.</p>
+</div>
+<div class="section" id="posterior">
+<h4>Posterior<a class="headerlink" href="#posterior" title="Permalink to this headline">¶</a></h4>
+<p>The method <code class="code docutils literal notranslate"><span class="pre">posteriors()</span></code> of class <code class="code docutils literal notranslate"><span class="pre">Game</span></code> to compute the posteriors.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pos</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">posteriors</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">N(mu=2.361, sigma=5.516)</span>
+</pre></div>
+</div>
+<p>Posteriors can also be found by manually multiplying the likelihoods and priors.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">a1</span><span class="o">.</span><span class="n">prior</span>
+<span class="go">N(mu=2.361, sigma=5.516)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="team-performance">
+<h4>Team performance<a class="headerlink" href="#team-performance" title="Permalink to this headline">¶</a></h4>
+<p>We can obtain the expected performance of the first team.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">performance</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="go">N(mu=0.000, sigma=8.602)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="full-example">
+<h4>Full example<a class="headerlink" href="#full-example" title="Permalink to this headline">¶</a></h4>
+<p>We now analyze a more complex example in which the same four players participate in a multi-team game.
+The players are organized into three teams of different sizes: two teams with only one player and the other with two players.
+The result has a single winning team and a tie between the other two losing teams.
+Unlike the previous example, we need to use a draw probability greater than zero.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ta</span> <span class="o">=</span> <span class="p">[</span><span class="n">a1</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tb</span> <span class="o">=</span> <span class="p">[</span><span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tc</span> <span class="o">=</span> <span class="p">[</span><span class="n">a4</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">teams_3</span> <span class="o">=</span> <span class="p">[</span><span class="n">ta</span><span class="p">,</span> <span class="n">tb</span><span class="p">,</span> <span class="n">tc</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Game</span><span class="p">(</span><span class="n">teams_3</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">p_draw</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">result</span>
+<span class="go">[1.0, 0.0, 0.0]</span>
+</pre></div>
+</div>
+<p>The team with the highest score is the winner, and the teams with the same score are tied.
+In this way, we can specify any outcome including global draws.
+The evidence and posteriors can be queried in the same way as before.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">posteriors</span><span class="p">()</span>
+<span class="go">[[N(mu=3.864, sigma=4.724)], [N(mu=-1.290, sigma=4.776), N(mu=-1.290, sigma=4.776)], [N(mu=-2.574, sigma=4.274)]]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<span id="document-man/history"></span><div class="section" id="the-history-class">
+<h3>The <cite>History</cite> class<a class="headerlink" href="#the-history-class" title="Permalink to this headline">¶</a></h3>
+<p>We use the <cite>History</cite> class to compute the learning curves and predictions of a sequence of events.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.History">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">History</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">composition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">priors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.03</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_draw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trueskillthroughtime.History" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Let us return to the example seen on the first page of this manual.
+We define the composition of each game using the names of the agents (i.e. their identifiers).
+In the following example, all agents (<code class="code docutils literal notranslate"><span class="pre">&quot;a&quot;,</span> <span class="pre">&quot;b&quot;,</span> <span class="pre">&quot;c&quot;</span></code>) win one game and lose the other.
+The results will be implicitly defined by the order in which the game compositions are initialized: the teams appearing firstly in the list defeat those appearing later.
+By initializing <code class="code docutils literal notranslate"><span class="pre">gamma</span> <span class="pre">=</span> <span class="pre">0.0</span></code> we specify that skills do not change over time.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c1</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;a&quot;</span><span class="p">],[</span><span class="s2">&quot;b&quot;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c2</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;b&quot;</span><span class="p">],[</span><span class="s2">&quot;c&quot;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c3</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;c&quot;</span><span class="p">],[</span><span class="s2">&quot;a&quot;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">composition</span> <span class="o">=</span> <span class="p">[</span><span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">c3</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">History</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="go">History(Events=3, Batches=3, Agents=3)</span>
+</pre></div>
+</div>
+<p>After initialization, the <code class="code docutils literal notranslate"><span class="pre">History</span></code> class immediately instantiates a new player for each name and activates the computation of the TrueSkill estimates (not yet TrueSkill Through Time).</p>
+<div class="section" id="learning-curves">
+<h4>Learning curves<a class="headerlink" href="#learning-curves" title="Permalink to this headline">¶</a></h4>
+<p>To access estimates we can call the method <code class="code docutils literal notranslate"><span class="pre">learning_curves()</span></code>, which returns a dictionary indexed by the names of the agents.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=3.339, sigma=4.985)), (3, N(mu=-2.688, sigma=3.779))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=-3.339, sigma=4.985)), (2, N(mu=0.059, sigma=4.218))]</span>
+</pre></div>
+</div>
+<p>Individual learning curves are lists of tuples: each tuple has the time of the estimate as the first component and the estimate itself as the second one.
+Although in this example no player is stronger than the others, the TrueSkill estimates present strong variations between players.</p>
+</div>
+<div class="section" id="convergence">
+<h4>Convergence<a class="headerlink" href="#convergence" title="Permalink to this headline">¶</a></h4>
+<p>TrueSkill Through Time solves TrueSkill’s inability to obtain correct estimates by allowing the information to propagate throughout the system.
+To compute them, we call the method <code class="code docutils literal notranslate"><span class="pre">convergence()</span></code> of the <code class="code docutils literal notranslate"><span class="pre">History</span></code> class.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">convergence</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=0.000, sigma=2.395)), (3, N(mu=-0.000, sigma=2.395))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=-0.000, sigma=2.395)), (2, N(mu=-0.000, sigma=2.395))]</span>
+</pre></div>
+</div>
+<p>TrueSkill Through Time not only returns correct estimates (same for all players), they also have less uncertainty.</p>
+</div>
+<div class="section" id="model-evidence">
+<h4>Model evidence<a class="headerlink" href="#model-evidence" title="Permalink to this headline">¶</a></h4>
+<p>We would like to have a procedure to decide whether TrueSkill Through Time is better than others models and the optimal values of the parameters <code class="code docutils literal notranslate"><span class="pre">\sigma</span></code> and <code class="code docutils literal notranslate"><span class="pre">\gamma</span></code>.
+In the same way that we use probability theory to evaluate the hypotheses of a model given the data, we can also evaluate different models given the data.</p>
+<p><span class="math notranslate nohighlight">\(P(\text{Model}|\text{Data}) \propto P(\text{Data}|\text{Model})P(\text{Model})\)</span></p>
+<p>where <span class="math notranslate nohighlight">\(P(\text{Model})\)</span> is the prior of the models, which we define, and <span class="math notranslate nohighlight">\(P(\text{Data}|\text{Model})\)</span> is the prediction made by the model.
+In the special case where we have no prior preference over any model, we need only compare the predictions made by the models.</p>
+<p><span class="math notranslate nohighlight">\(P(\text{Model}|\text{Data}) \propto P(\text{Data}|\text{Model})\)</span></p>
+<p>In other words, we prefer the model with the best prediction.</p>
+<p><span class="math notranslate nohighlight">\(P(\text{Data}|\text{Model}) = P(d_1|\text{M})P(d_2|d_1,\text{M}) \dots P(d_n|d_{n-1}, \dots, d_1, \text{M})\)</span></p>
+<p>where D represents the data set, M the model, and <span class="math notranslate nohighlight">\(d_i\)</span> the individual data points.
+This measure can be obtained by the <code class="code docutils literal notranslate"><span class="pre">evidence</span></code> method.
+Let us develop a complex synthetic example in which this measure is useful for choosing the optimal dynamic uncertainty.</p>
+</div>
+<div class="section" id="optimizing-the-dynamic-factor">
+<h4>Optimizing the dynamic factor<a class="headerlink" href="#optimizing-the-dynamic-factor" title="Permalink to this headline">¶</a></h4>
+<p>We now analyze a scenario in which a new player joins a large community of already known players.
+In this example, we focus on the estimation of an evolving skill.
+For this purpose, we establish the skill of the target player to change over time following a logistic function.
+The community is generated by ensuring that each opponent has a skill similar to that of the target player throughout their evolution.
+In the following code, we generate the target player’s learning curve and 1000 random opponents.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">math</span><span class="p">;</span> <span class="kn">from</span> <span class="nn">numpy.random</span> <span class="kn">import</span> <span class="n">normal</span><span class="p">,</span> <span class="n">seed</span><span class="p">;</span> <span class="n">seed</span><span class="p">(</span><span class="mi">99</span><span class="p">);</span> <span class="n">N</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="k">def</span> <span class="nf">skill</span><span class="p">(</span><span class="n">experience</span><span class="p">,</span> <span class="n">middle</span><span class="p">,</span> <span class="n">maximum</span><span class="p">,</span> <span class="n">slope</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">maximum</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">slope</span><span class="o">*</span><span class="p">(</span><span class="o">-</span><span class="n">experience</span><span class="o">+</span><span class="n">middle</span><span class="p">)))</span>
+
+<span class="n">target</span> <span class="o">=</span> <span class="p">[</span><span class="n">skill</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">0.0075</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+<span class="n">opponents</span> <span class="o">=</span> <span class="n">normal</span><span class="p">(</span><span class="n">target</span><span class="p">,</span><span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The list <code class="code docutils literal notranslate"><span class="pre">target</span></code> has the agent’s skills at each moment: the values start at zero and grow smoothly until the target player’s skill reaches two.
+The list <code class="code docutils literal notranslate"><span class="pre">opponents</span></code> includes the randomly generated opponents’ skills following a Gaussian distribution centered on each target’s skills and a standard deviation of 0.5.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">composition</span> <span class="o">=</span> <span class="p">[[[</span><span class="s2">&quot;a&quot;</span><span class="p">],</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+<span class="n">results</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">normal</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">normal</span><span class="p">(</span><span class="n">opponents</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+<span class="n">priors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">([(</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">(</span><span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">opponents</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mf">0.2</span><span class="p">)))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)])</span>
+
+<span class="n">h</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">History</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">priors</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.015</span><span class="p">)</span>
+<span class="n">h</span><span class="o">.</span><span class="n">convergence</span><span class="p">()</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="p">[</span><span class="n">tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mu</span> <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;a&quot;</span><span class="p">]]</span>
+</pre></div>
+</div>
+<p>In this code, we define four variables to instantiate the class <cite>History</cite> to compute the target’s learning curve.
+The variable <code class="code docutils literal notranslate"><span class="pre">composition</span></code> contains 1000 games between the target player and different opponents.
+The list <code class="code docutils literal notranslate"><span class="pre">results</span></code> is generated randomly by sampling the agents’ performance following Gaussian distributions centered on their skills. The winner is the player with the highest performance.
+The variable <code class="code docutils literal notranslate"><span class="pre">time</span></code> is a list of integer values ranging from 0 to 999 representing the time batch in which each game is located: the class <code class="code docutils literal notranslate"><span class="pre">History</span></code> uses the temporal distance between events to determine the amount of dynamic uncertainty (<span class="math notranslate nohighlight">\(\gamma^2\)</span>) to be added between games.
+The variable <code class="code docutils literal notranslate"><span class="pre">priors</span></code> is a dictionary used to customize player attributes: we assign low uncertainty to the opponents’ priors as we know their skills beforehand.</p>
+<p>The class <code class="code docutils literal notranslate"><span class="pre">History</span></code> receives these four parameters and initializes the target player using the default values and a dynamic uncertainty <code class="code docutils literal notranslate"><span class="pre">gamma=0.018</span></code>.
+Using the method <code class="code docutils literal notranslate"><span class="pre">convergence()</span></code>, we obtain the TrueSkill Through Time estimates and the target’s learning curve.
+The following figure shows the evolution of the true (solid line) and estimated (dotted line) target player’s learning curves.</p>
+<img alt="_static/logistic0.png" src="_static/logistic0.png" />
+<p>The estimated learning curves remain close to the actual skill during the whole evolution.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">le</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">log_evidence</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The geometric mean of the evidence is</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">le</span><span class="o">/</span><span class="n">h</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+<span class="go">0.51802292530</span>
+</pre></div>
+</div>
+<p>To optimize, repeat this procedure with different values of gamma until minimize the <code class="code docutils literal notranslate"><span class="pre">log_evidence</span></code> (or maximize the geommetric mean).</p>
+</div>
+</div>
+<span id="document-man/examples"></span><div class="section" id="real-examples">
+<h3>Real examples<a class="headerlink" href="#real-examples" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="the-history-of-the-association-of-tennis-professionals">
+<h4>The History of the Association of Tennis Professionals<a class="headerlink" href="#the-history-of-the-association-of-tennis-professionals" title="Permalink to this headline">¶</a></h4>
+<p>In this last example, we analyze the complete history of the Association of Tennis Professionals (ATP) registered matches.
+The database has 447000 games starting in 1915 until 2020 with more than 19000 participating players and is publicly available.
+The information stored in a [single CSV file](<a class="reference external" href="https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip">https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip</a>).
+Each game has an identifier (i.e. <code class="code docutils literal notranslate"><span class="pre">match_id</span></code>) and its tournament’s round number (i.e. <code class="code docutils literal notranslate"><span class="pre">round_number</span></code>), where 0 represents the final game, 1 the semi-final, and so on.
+The file also contains players’ identifiers and names.
+For example, column <code class="code docutils literal notranslate"><span class="pre">w2_id</span></code> is the second player’s identifier of the winning team, and <code class="code docutils literal notranslate"><span class="pre">l1_name</span></code> is the first player’s name of the losing team.
+Finally, we have the tournament’s name (<code class="code docutils literal notranslate"><span class="pre">tour_name</span></code>), its identifier (<code class="code docutils literal notranslate"><span class="pre">tour_id</span></code>), the tournament’s starting date (<code class="code docutils literal notranslate"><span class="pre">time_start</span></code>), and the type of surface (<code class="code docutils literal notranslate"><span class="pre">ground</span></code>).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span><span class="p">;</span> <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input/history.csv&#39;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">columns</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">w1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">w2_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l2_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+<span class="n">composition</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">w1</span><span class="p">,</span><span class="n">w2</span><span class="p">],[</span><span class="n">l1</span><span class="p">,</span><span class="n">l2</span><span class="p">]]</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="s1">&#39;t&#39;</span> <span class="k">else</span> <span class="p">[[</span><span class="n">w1</span><span class="p">],[</span><span class="n">l1</span><span class="p">]]</span> <span class="k">for</span> <span class="n">w1</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">columns</span> <span class="p">]</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">[</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span><span class="o">/</span><span class="p">(</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">24</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">time_start</span><span class="p">]</span>
+
+<span class="n">h</span> <span class="o">=</span> <span class="n">History</span><span class="p">(</span><span class="n">composition</span> <span class="o">=</span> <span class="n">composition</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="n">times</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="mf">1.6</span><span class="p">,</span> <span class="n">gamma</span> <span class="o">=</span> <span class="mf">0.036</span><span class="p">)</span>
+<span class="n">h</span><span class="o">.</span><span class="n">convergence</span><span class="p">(</span><span class="n">epsilon</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this code, we open the file <code class="code docutils literal notranslate"><span class="pre">history.csv</span></code>, create the variables <code class="code docutils literal notranslate"><span class="pre">times</span></code> and <code class="code docutils literal notranslate"><span class="pre">composition</span></code>, and instantiate the class <code class="code docutils literal notranslate"><span class="pre">History</span></code>.
+We define the event times as the days elapsed from a reference date to the tournament start date, assuming that the skill is the same within each tournament.
+When generating the list <code class="code docutils literal notranslate"><span class="pre">composition</span></code> we discriminate whether the games are doubles or singles using the column <code class="code docutils literal notranslate"><span class="pre">double</span></code>.
+The results are determined by the composition’s order, placing the winning team first.
+When initializing the class <code class="code docutils literal notranslate"><span class="pre">History</span></code> we set the values of <code class="code docutils literal notranslate"><span class="pre">sigma</span></code> and <code class="code docutils literal notranslate"><span class="pre">gamma</span></code> based on an optimization procedure previously performed.
+Finally, we use the <code class="code docutils literal notranslate"><span class="pre">convergence()</span></code> method to obtain TrueSkill Through Time estimates explicitly selecting the convergence criterion: when the change between iterations is less than 0.01 or when ten iterations are performed.</p>
+<p>The following figure presents the estimated learning curves of some famous players in ATP’s history, which we identified using different colors
+The learning curves share a similar pattern: they begin with rapid growth, reach an unstable plateau, and end with a slow decline (we hidden the last portion of the players who have long final stages for visualization purposes).</p>
+<img alt="_images/atp.png" src="_images/atp.png" />
+<p>The top bar indicates which player was at the top of the ATP’s ranking (the bar has no color when player number 1 is not included among the 10 players identified with colors).
+ATP’s ranking points are updated every Monday according to the prestige of the tournament and the stage reached.
+There is a relative coincidence between the skill estimates and who is at any given moment at the top of the ATP rankings.
+The following Table shows the historical ranking of players in the top position of the ATP’s ranking according to the number of weeks occupying the first position.</p>
+<p><a href="#id1"><span class="problematic" id="id2">|No|</span></a> Name | Weeks at top|
+<a href="#id3"><span class="problematic" id="id4">|:-:|</span></a>:-:<a href="#id5"><span class="problematic" id="id6">|:-:|</span></a>
+|    1       |   Novak Djokovic      |   320|
+|    2       |   Roger Federer       |  310|
+|    3       |  Pete Sampras        |   286|
+|    4       |   Ivan Lendl          |   270|
+|    5       |   Jimmy Connors       |   268|
+|    6       |   Rafael Nadal        |   209|
+|    7       |   John McEnroe        |   170|
+|    8       |   Bj”orn Borg        |   109|
+|    9       |   Andre Agassi        |   101|
+|    10      |   Lleyton Hewitt      |   80 |
+|    11             |   Stefan Edberg       |   72|
+|    12             |   Jim Courier         |   58|
+|    13             |   Gustavo Kuerten     |   43|
+|    14             |   Andy Murray         |   41|
+|    15             |   Ilie Nu{a}stase    |   40|
+|    16             |   Mats Wilander       |   20 |</p>
+<p>However, TrueSkill Through Time allows comparing the relative ability of players over time: the 10th player in the historical ATP’s ranking, Hewitt, is a product of the window of opportunity that was opened in the year 2000; and the 4th most skilled player, Murray, is ranked 14th just above Nastase.
+Individual learning curves enable recognizing special periods of crisis and prolonged stability of the professional players, and even the effects of emotional slumps such as those suffered by Aggasi and Djokovic.
+It is worthwhile to note that the skill of tennis players did not increase abruptly over the years: contrary to what might have been expected, the players of the 1980s were more skilled than those of the 1990s, and reached a skill similar to what Federer, Nadal and Djokovic had in 2020, even though the latter reached higher values for a longer time.</p>
+</div>
+<div class="section" id="multidimensional-skills">
+<h4>Multidimensional skills<a class="headerlink" href="#multidimensional-skills" title="Permalink to this headline">¶</a></h4>
+<p>In the previous example, we summarize the players’ skills in a single dimension.
+TrueSkill Through Time allows estimating multi-dimensional skills.
+It is known that the ability of certain tennis players varies significantly depending on the surface.
+To quantify this phenomenon, we propose modeling each player as a team composed of a generic player, who is included in all the games, and another player representing the ability of the player on a particular surface.
+For example, Nadal will be represented as a two-player team: <code class="code docutils literal notranslate"><span class="pre">Nadal_generic</span></code> and <code class="code docutils literal notranslate"><span class="pre">Nadal_clay</span></code> when playing on this kind of surface, and <code class="code docutils literal notranslate"><span class="pre">Nadal_generic</span></code> and <code class="code docutils literal notranslate"><span class="pre">Nadal_grass</span></code> when participating in the Wimbledon tournament.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">trueskillthroughtime</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input/history.csv&#39;</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">columns</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">w1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">w2_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l2_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">double</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">ground</span><span class="p">)</span>
+<span class="n">composition</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">w1</span><span class="p">,</span><span class="n">w1</span><span class="o">+</span><span class="n">g</span><span class="p">,</span><span class="n">w2</span><span class="p">,</span><span class="n">w2</span><span class="o">+</span><span class="n">g</span><span class="p">],[</span><span class="n">l1</span><span class="p">,</span><span class="n">l1</span><span class="o">+</span><span class="n">g</span><span class="p">,</span><span class="n">l2</span><span class="p">,</span><span class="n">l2</span><span class="o">+</span><span class="n">g</span><span class="p">]]</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="s1">&#39;t&#39;</span> <span class="k">else</span> <span class="p">[[</span><span class="n">w1</span><span class="p">,</span><span class="n">w1</span><span class="o">+</span><span class="n">g</span><span class="p">],[</span><span class="n">l1</span><span class="p">,</span><span class="n">l1</span><span class="o">+</span><span class="n">g</span><span class="p">]]</span> <span class="k">for</span> <span class="n">w1</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">columns</span> <span class="p">]</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">[</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span><span class="o">/</span><span class="p">(</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">24</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">time_start</span><span class="p">]</span>
+
+<span class="n">columns</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">w1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">w2_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l1_id</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">l2_id</span><span class="p">)</span>
+<span class="n">player_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span> <span class="n">player</span> <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="n">columns</span> <span class="k">for</span> <span class="n">player</span> <span class="ow">in</span> <span class="n">game</span> <span class="p">])</span>
+
+<span class="n">priors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">([(</span><span class="n">p</span><span class="p">,</span> <span class="n">Player</span><span class="p">(</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.6</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.036</span><span class="p">)</span> <span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">player_ids</span><span class="p">])</span>
+
+<span class="n">h_ground</span> <span class="o">=</span> <span class="n">History</span><span class="p">(</span><span class="n">composition</span> <span class="o">=</span> <span class="n">composition</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="n">times</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">gamma</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">priors</span> <span class="o">=</span> <span class="n">priors</span><span class="p">)</span>
+<span class="n">h_ground</span><span class="o">.</span><span class="n">convergence</span><span class="p">(</span><span class="n">epsilon</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this example, we keep the same prior as before for all the generic players, but in this code we define them using the variable <code class="code docutils literal notranslate"><span class="pre">priors</span></code>.
+We create the teams depending on whether the game is double or single, adding the specific surface skills of each player as their teammate (we use the operator <code class="code docutils literal notranslate"><span class="pre">+</span></code> to concatenate strings).
+As the specific surface skills are not defined in the variable <code class="code docutils literal notranslate"><span class="pre">prior</span></code>, they are initialized using the default values defined in the class <code class="code docutils literal notranslate"><span class="pre">History</span></code>.
+We also define <code class="code docutils literal notranslate"><span class="pre">beta</span></code> as null for specific surface skills to avoid adding additional noise to the players’ performance, keeping the scale of the estimates stable.
+We select a <code class="code docutils literal notranslate"><span class="pre">sigma</span></code> that we consider sufficiently large and a dynamic factor <code class="code docutils literal notranslate"><span class="pre">gamma</span></code> representing 1% of the prior uncertainty.</p>
+<p>In the following Figures, we show the skill difference that Nadal and Djokovic have in each of the three types of ground.</p>
+<img alt="_images/atp_ground0.png" src="_images/atp_ground0.png" />
+<p>Nadal has a notorious skill difference when playing on different surfaces.
+The Nadal’s skill difference between clay and grass grounds is greater than one <span class="math notranslate nohighlight">\(\beta\)</span>, which means at least 76% difference in probability of winning compared to itself.
+On the contrary, Djokovic has very similar skills in the three types.</p>
+<img alt="_images/atp_ground2.png" src="_images/atp_ground2.png" />
+<p>In the case of Nadal (id <code class="code docutils literal notranslate"><span class="pre">&quot;n409&quot;</span></code>), it seems important to model the skill’s multi-dimensionality, while in Djokovic’s case (id <code class="code docutils literal notranslate"><span class="pre">&quot;d643&quot;</span></code>) it seems reasonable to summarize it in a single dimension.
+To assess whether the complexity added by modeling multi-dimensionality is appropriate in general terms, we can compare the joint prior prediction of the models, calling the method <code class="code docutils literal notranslate"><span class="pre">log_evidence()</span></code> of the class <code class="code docutils literal notranslate"><span class="pre">History</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">h_ground</span><span class="o">.</span><span class="n">log_evidence</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In tennis, it is sufficient to summarize the skills in a single dimension since the <code class="code docutils literal notranslate"><span class="pre">log_evidence</span></code> is maximized when the parameters of the surface’s factors (i.e. <span class="math notranslate nohighlight">\(\sigma\)</span> and <code class="code docutils literal notranslate"><span class="pre">\gamma</span></code>) vanish.
+In other examples, where the multi-dimensionality of skills could be more relevant, it should be necessary to model the skills of all agents using different components.</p>
+<p>If we consider only the games in which Nadal participates, optimality is achieved when the parameters take the values <span class="math notranslate nohighlight">\(\sigma=0.35\)</span> and <span class="math notranslate nohighlight">\(\gamma=0\)</span>, meaning that it is necessary to model multidimensional skills (<span class="math notranslate nohighlight">\(\sigma&gt;0\)</span>) but considering that their effect does not change over time (<span class="math notranslate nohighlight">\(\gamma = 0\)</span>).
+In this scenario, Nadal’s ability on Clay is <span class="math notranslate nohighlight">\(0.87\beta\)</span> higher than on Hard and <span class="math notranslate nohighlight">\(1.05\beta\)</span> higher than on Grass.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="ilustration">
+<span id="sec-ilustration"></span><h2>Ilustration<a class="headerlink" href="#ilustration" title="Permalink to this headline">¶</a></h2>
+<p>To appreciate the advantages of TrueSkill Through Time, let’s see how it works in a real case.
+The following figure presents the estimated learning curves of some famous male players in ATP’s history, which we identified using different colors (to see the source code go to section <cite>Real examples</cite>)</p>
+<img alt="_images/atp.png" src="_images/atp.png" />
+<p>The top bar indicates which player was at the top of the ATP’s ranking (the bar has no color when player number 1 is not included among the 10 players identified with colors).
+There is a relative coincidence between the skill estimates and who is at any given moment at the top of the ATP rankings.
+However, TrueSkill Through Time allows comparing the relative ability of players over time: the 10th player in the historical ATP’s ranking, Hewitt, is a product of the window of opportunity that was opened in the year 2000; and the 4th most skilled player, Murray, is ranked 14th just above Nastase.</p>
+<p>The <strong>models commonly used in industry and academia</strong> (TrueSkill, Glicko, Item-Response Theory) propagates information from past events to future events.
+Because this approach is an ad-hoc procedure that does not arise from any probabilistic model, its estimates have a number of problems.</p>
+<img alt="_images/atp_trueskill.png" src="_images/atp_trueskill.png" />
+<p>The advantage of TrueSkill Through Time lies in its temporal causal model, that links all historical activities in the same Bayesian network, guaranteeing reliable initial estimates and comparability between distant estimates.</p>
+</div>
+<div class="section" id="first-examples">
+<span id="sec-first-examples"></span><h2>First examples<a class="headerlink" href="#first-examples" title="Permalink to this headline">¶</a></h2>
+<p>We can update our skill estimates after a single event, or we can estimate the learning curves of all players from a history of events.
+Let’s see both cases.</p>
+<div class="section" id="a-single-game">
+<h3>A single game<a class="headerlink" href="#a-single-game" title="Permalink to this headline">¶</a></h3>
+<p>We use the <code class="code docutils literal notranslate"><span class="pre">Game</span></code> class to model events and perform inference.
+The features of the agents are defined within <code class="code docutils literal notranslate"><span class="pre">Player</span></code> class.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a1</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a2</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a3</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a4</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_a</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_b</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a3</span><span class="p">,</span> <span class="n">a4</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Game</span><span class="p">([</span><span class="n">team_a</span><span class="p">,</span> <span class="n">team_b</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">posteriors</span><span class="p">()</span>
+<span class="go">[[N(mu=2.361, sigma=5.516), N(mu=2.361, sigma=5.516)], [N(mu=-2.361, sigma=5.516), N(mu=-2.361, sigma=5.516)]]</span>
+</pre></div>
+</div>
+<p>where the teams’ order in the list implicitly defines the game’s result: the teams appearing first in the list (lower index) beat those appearing later (higher index).
+This is one of the simplest usage examples.
+Later on, we will learn how to explicitly specify the result, and others features.</p>
+</div>
+<div class="section" id="a-history-of-events">
+<span id="sec-history-of-events"></span><h3>A history of events<a class="headerlink" href="#a-history-of-events" title="Permalink to this headline">¶</a></h3>
+<p>We use the <code class="code docutils literal notranslate"><span class="pre">History</span></code> class to compute the learning curves and predictions of a sequence of events.
+We will define the composition of each game using the names of the agents (i.e. their identifiers).
+In the following example, all agents (<code class="code docutils literal notranslate"><span class="pre">&quot;a&quot;,</span> <span class="pre">&quot;b&quot;,</span> <span class="pre">&quot;c&quot;</span></code>) win one game and lose the other.
+The results will be implicitly defined by the order in which the game compositions are initialized: the teams appearing firstly in the list defeat those appearing later.
+By initializing <code class="code docutils literal notranslate"><span class="pre">gamma</span> <span class="pre">=</span> <span class="pre">0.0</span></code> we specify that skills do not change over time.
+In this example, where all agents beat each other and their skills do not change over time, the data suggest that all agents have the same skill.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">c1</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;a&quot;</span><span class="p">],[</span><span class="s2">&quot;b&quot;</span><span class="p">]]</span>
+<span class="n">c2</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;b&quot;</span><span class="p">],[</span><span class="s2">&quot;c&quot;</span><span class="p">]]</span>
+<span class="n">c3</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;c&quot;</span><span class="p">],[</span><span class="s2">&quot;a&quot;</span><span class="p">]]</span>
+<span class="n">composition</span> <span class="o">=</span> <span class="p">[</span><span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">c3</span><span class="p">]</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">History</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After initialization, the <code class="code docutils literal notranslate"><span class="pre">History</span></code> class immediately instantiates a new player for each name and activates the computation of the TrueSkill estimates (not yet TrueSkill Through Time).
+To access them we can call the method <code class="code docutils literal notranslate"><span class="pre">learning_curves()</span></code>, which returns a dictionary indexed by the names of the agents.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=3.339, sigma=4.985)), (3, N(mu=-2.688, sigma=3.779))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=-3.339, sigma=4.985)), (2, N(mu=0.059, sigma=4.218))]</span>
+</pre></div>
+</div>
+<p>Individual learning curves are lists of tuples: each tuple has the time of the estimate as the first component and the estimate itself as the second one.
+Although in this example no player is stronger than the others, the TrueSkill estimates present strong variations between players.
+TrueSkill Through Time solves TrueSkill’s inability to obtain correct estimates by allowing the information to propagate throughout the system.
+To compute them, we call the method <code class="code docutils literal notranslate"><span class="pre">convergence()</span></code> of the <code class="code docutils literal notranslate"><span class="pre">History</span></code> class.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">convergence</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=0.000, sigma=2.395)), (3, N(mu=-0.000, sigma=2.395))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span>
+<span class="go">[(1, N(mu=-0.000, sigma=2.395)), (2, N(mu=-0.000, sigma=2.395))]</span>
+</pre></div>
+</div>
+<p>TrueSkill Through Time not only returns correct estimates (same for all players), they also have less uncertainty.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">TrueSkillThroughTime</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/causal">Causal model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/gaussian">The <cite>Gaussian</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/player">The <cite>Player</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/game">The <cite>Game</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/history">The <cite>History</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-man/examples">Real examples</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Gustavo Landfried.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
