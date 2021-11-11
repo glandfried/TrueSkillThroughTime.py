@@ -22,18 +22,15 @@ The we can use it.
 .. code-block:: python3
 
     import trueskillthroughtime as ttt
+
+- To appreciate the advantages of TrueSkill Through Time, scroll down to subsection :ref:`sec-ilustration`
+- To quickly see how to use the package, scroll down to subsection :ref:`sec-first-examples`.
     
-.. doctest::
-
-   >>> ttt.Gaussian()  # use the default mu and sigma
-   N(mu=0.000, sigma=6.000)
-
-
 Index
 -----       
    
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     
     man/causal
     man/gaussian
@@ -41,12 +38,14 @@ Index
     man/game
     man/history
     man/examples
+
+.. _sec-ilustration:
     
 Ilustration
 -----------
 
 To appreciate the advantages of TrueSkill Through Time, let's see how it works in a real case.
-The following figure presents the estimated learning curves of some famous male players in ATP's history, which we identified using different colors (to see the source code go to section :ref:`sec-first-examples`)
+The following figure presents the estimated learning curves of some famous male players in ATP's history, which we identified using different colors (to see the source code go to section `Real examples`)
 
 .. image:: _static/atp.png
 

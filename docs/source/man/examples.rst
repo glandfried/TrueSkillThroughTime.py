@@ -1,3 +1,5 @@
+.. _sec-real-examples:
+
 Real examples
 ==============
 
@@ -43,25 +45,26 @@ ATP's ranking points are updated every Monday according to the prestige of the t
 There is a relative coincidence between the skill estimates and who is at any given moment at the top of the ATP rankings.
 The following Table shows the historical ranking of players in the top position of the ATP's ranking according to the number of weeks occupying the first position.
 
-|No| Name | Weeks at top|
-|:-:|:-:|:-:|
-|    1       |   Novak Djokovic      |   320|
-|    2       |   Roger Federer       |	310|
-|    3       |	Pete Sampras        |   286|
-|    4       |   Ivan Lendl          |   270|
-|    5       |   Jimmy Connors       |   268|
-|    6       |   Rafael Nadal        |   209|
-|    7       |   John McEnroe        |   170|
-|    8       |   Bj\"orn Borg        |   109|
-|    9       |   Andre Agassi        |   101|
-|    10      |   Lleyton Hewitt      |   80 |
-|    11 	    |   Stefan Edberg       | 	72|
-|    12 	    |   Jim Courier         | 	58|
-|    13 	    |   Gustavo Kuerten     | 	43|
-|    14 	    |   Andy Murray         | 	41|
-|    15 	    |   Ilie N\u{a}stase    | 	40|
-|    16 	    |   Mats Wilander       | 	20 |
-
+== ================ ============
+No Name             Weeks at top
+== ================ ============
+1  Novak Djokovic   320
+2  Roger Federer    310
+3  Pete Sampras     286
+4  Ivan Lendl       270
+5  Jimmy Connors    268
+6  Rafael Nadal     209
+7  John McEnroe     170
+8  Bjorn Borg       109
+9  Andre Agassi     101
+10 Lleyton Hewitt   80 
+11 Stefan Edberg    72
+12 Jim Courier      58
+13 Gustavo Kuerten  43
+14 Andy Murray      41
+15 Ilie Nastase     40
+16 Mats Wilander    20
+== ================ ============
 
 However, TrueSkill Through Time allows comparing the relative ability of players over time: the 10th player in the historical ATP's ranking, Hewitt, is a product of the window of opportunity that was opened in the year 2000; and the 4th most skilled player, Murray, is ranked 14th just above Nastase.
 Individual learning curves enable recognizing special periods of crisis and prolonged stability of the professional players, and even the effects of emotional slumps such as those suffered by Aggasi and Djokovic.
