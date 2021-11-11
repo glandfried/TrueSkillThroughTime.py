@@ -1,0 +1,181 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Gaussian class &#8212; TrueSkillThroughTime 0.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="The Player class" href="player.html" />
+    <link rel="prev" title="Causal model" href="causal.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="the-gaussian-class">
+<h1>The <cite>Gaussian</cite> class<a class="headerlink" href="#the-gaussian-class" title="Permalink to this headline">¶</a></h1>
+<p>The <code class="code docutils literal notranslate"><span class="pre">Gaussian</span></code> class does most of the computation of the packages.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.Gaussian">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">Gaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/trueskillthroughtime.html#Gaussian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#trueskillthroughtime.Gaussian" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The default value are <code class="code docutils literal notranslate"><span class="pre">MU</span> <span class="pre">=</span> <span class="pre">0.0</span></code> and <code class="code docutils literal notranslate"><span class="pre">SIGMA</span> <span class="pre">=</span> <span class="pre">6.0</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span>
+<span class="go">N(mu=0.000, sigma=6.000)</span>
+</pre></div>
+</div>
+<p>Others ways to create <code class="code docutils literal notranslate"><span class="pre">Gaussian</span></code> objects</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">sigma</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Ninf</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span><span class="n">ttt</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span><span class="o">.</span><span class="n">mu</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N01</span><span class="o">.</span><span class="n">sigma</span>
+<span class="go">1.0</span>
+</pre></div>
+</div>
+<p>The class overwrites the addition <code class="code docutils literal notranslate"><span class="pre">+</span></code>, subtraction <code class="code docutils literal notranslate"><span class="pre">-</span></code>, product <code class="code docutils literal notranslate"><span class="pre">*</span></code>, and division <code class="code docutils literal notranslate"><span class="pre">/</span></code> to compute the marginal distributions used in the TrueSkill Through Time model.</p>
+<div class="section" id="product">
+<h2>Product <code class="code docutils literal notranslate"><span class="pre">*</span></code><a class="headerlink" href="#product" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\mathcal{N}(x|\mu_1,\sigma_1^2)\mathcal{N}(x|\mu_2,\sigma_2^2) \propto \mathcal{N}(x|\mu_{*},\sigma_{*}^2)\)</span></p></li>
+</ul>
+<p>with <span class="math notranslate nohighlight">\(\frac{\mu_{*}}{\sigma_{*}^2} = \frac{\mu_1}{\sigma_1^2} + \frac{\mu_2}{\sigma_2^2}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{*}^2 = (\frac{1}{\sigma_1^2} + \frac{1}{\sigma_2^2})^{-1}\)</span>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">*</span> <span class="n">N12</span>
+<span class="go">N(mu=0.900, sigma=1.897)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">*</span> <span class="n">Ninf</span>
+<span class="go">N(mu=1.000, sigma=2.000)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="division">
+<h2>Division <code class="code docutils literal notranslate"><span class="pre">/</span></code><a class="headerlink" href="#division" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\mathcal{N}(x|\mu_1,\sigma_1^2)/\mathcal{N}(x|\mu_2,\sigma_2^2) \propto \mathcal{N}(x|\mu_{\div},\sigma_{\div}^2)\)</span></p></li>
+</ul>
+<p>with <span class="math notranslate nohighlight">\(\frac{\mu_{\div}}{\sigma_{\div}^2} = \frac{\mu_1}{\sigma_1^2} - \frac{\mu_2}{\sigma_2^2}\)</span> and <span class="math notranslate nohighlight">\(\sigma_{\div}^2 = (\frac{1}{\sigma_1^2} - \frac{1}{\sigma_2^2})^{-1}\)</span>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">/</span> <span class="n">N06</span>
+<span class="go">N(mu=1.125, sigma=2.121)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span> <span class="o">/</span> <span class="n">Ninf</span>
+<span class="go">N(mu=1.000, sigma=2.000)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="addition">
+<h2>Addition <code class="code docutils literal notranslate"><span class="pre">+</span></code><a class="headerlink" href="#addition" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\iint \delta(t=x + y) \mathcal{N}(x|\mu_1, \sigma_1^2)\mathcal{N}(y|\mu_2, \sigma_2^2) dxdy =  \mathcal{N}(t|\mu_1+\mu_2,\sigma_1^2 + \sigma_2^2)\)</span></p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">+</span> <span class="n">N12</span>
+<span class="go">N(mu=1.000, sigma=6.325)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="substraction">
+<h2>Substraction <code class="code docutils literal notranslate"><span class="pre">-</span></code><a class="headerlink" href="#substraction" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\iint \delta(t=x - y) \mathcal{N}(x|\mu_1, \sigma_1^2)\mathcal{N}(y|\mu_2, \sigma_2^2) dxdy =  \mathcal{N}(t|\mu_1-\mu_2,\sigma_1^2 + \sigma_2^2)\)</span></p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span> <span class="o">-</span> <span class="n">N12</span>
+<span class="go">N(mu=-1.000, sigma=6.325)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="others-methods">
+<h2>Others methods<a class="headerlink" href="#others-methods" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">N06</span><span class="o">-</span><span class="n">N12</span> <span class="o">==</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">mu</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">6.324555</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">N06</span><span class="o">-</span><span class="n">N12</span><span class="p">)</span><span class="o">.</span><span class="n">isapprox</span><span class="p">(</span><span class="n">ttt</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">mu</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">6.324555</span><span class="p">),</span> <span class="mf">1e-6</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N12</span><span class="o">.</span><span class="n">forget</span><span class="p">(</span><span class="n">gamma</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">N(mu=1.000, sigma=2.236)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">TrueSkillThroughTime</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="causal.html">Causal model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">The <cite>Gaussian</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="player.html">The <cite>Player</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="game.html">The <cite>Game</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">The <cite>History</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Real examples</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="causal.html" title="previous chapter">Causal model</a></li>
+      <li>Next: <a href="player.html" title="next chapter">The <cite>Player</cite> class</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Gustavo Landfried.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="../_sources/man/gaussian.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

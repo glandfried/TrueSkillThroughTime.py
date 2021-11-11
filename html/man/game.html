@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Game class &#8212; TrueSkillThroughTime 0.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="The History class" href="history.html" />
+    <link rel="prev" title="The Player class" href="player.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="the-game-class">
+<h1>The <cite>Game</cite> class<a class="headerlink" href="#the-game-class" title="Permalink to this headline">¶</a></h1>
+<p>We use the <cite>Game</cite> class to model events and perform inference.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="trueskillthroughtime.Game">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">trueskillthroughtime.</span></span><span class="sig-name descname"><span class="pre">Game</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">teams</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_draw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/trueskillthroughtime.html#Game"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#trueskillthroughtime.Game" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Let us return to the example seen on the first page of this manual.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a1</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a2</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a3</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">();</span> <span class="n">a4</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Player</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_a</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">team_b</span> <span class="o">=</span> <span class="p">[</span> <span class="n">a3</span><span class="p">,</span> <span class="n">a4</span> <span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Game</span><span class="p">([</span><span class="n">team_a</span><span class="p">,</span> <span class="n">team_b</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">teams</span>
+<span class="go">[[Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030), Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)], [Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030), Player(Gaussian(mu=0.000, sigma=6.000), beta=1.000, gamma=0.030)]]</span>
+</pre></div>
+</div>
+<p>where the teams’ order in the list implicitly defines the game’s result: the teams appearing first in the list (lower index) beat those appearing later (higher index).</p>
+<div class="section" id="evidence-and-likelihood">
+<h2>Evidence and likelihood<a class="headerlink" href="#evidence-and-likelihood" title="Permalink to this headline">¶</a></h2>
+<p>During the initialization, the <code class="code docutils literal notranslate"><span class="pre">Game</span></code> class computes the prior prediction of the observed result (the <code class="code docutils literal notranslate"><span class="pre">evidence</span></code> atribute) and the approximate likelihood of each player (the <code class="code docutils literal notranslate"><span class="pre">likelihoods</span></code> atribute).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">likelihoods</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">round</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">evidence</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="go">0.5</span>
+</pre></div>
+</div>
+<p>In this case, the evidence is <code class="code docutils literal notranslate"><span class="pre">0.5</span></code> because both teams had the same prior skill estimates.</p>
+</div>
+<div class="section" id="posterior">
+<h2>Posterior<a class="headerlink" href="#posterior" title="Permalink to this headline">¶</a></h2>
+<p>The method <code class="code docutils literal notranslate"><span class="pre">posteriors()</span></code> of class <code class="code docutils literal notranslate"><span class="pre">Game</span></code> to compute the posteriors.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pos</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">posteriors</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">N(mu=2.361, sigma=5.516)</span>
+</pre></div>
+</div>
+<p>Posteriors can also be found by manually multiplying the likelihoods and priors.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">a1</span><span class="o">.</span><span class="n">prior</span>
+<span class="go">N(mu=2.361, sigma=5.516)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="team-performance">
+<h2>Team performance<a class="headerlink" href="#team-performance" title="Permalink to this headline">¶</a></h2>
+<p>We can obtain the expected performance of the first team.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">performance</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="go">N(mu=0.000, sigma=8.602)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="full-example">
+<h2>Full example<a class="headerlink" href="#full-example" title="Permalink to this headline">¶</a></h2>
+<p>We now analyze a more complex example in which the same four players participate in a multi-team game.
+The players are organized into three teams of different sizes: two teams with only one player and the other with two players.
+The result has a single winning team and a tie between the other two losing teams.
+Unlike the previous example, we need to use a draw probability greater than zero.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ta</span> <span class="o">=</span> <span class="p">[</span><span class="n">a1</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tb</span> <span class="o">=</span> <span class="p">[</span><span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tc</span> <span class="o">=</span> <span class="p">[</span><span class="n">a4</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">teams_3</span> <span class="o">=</span> <span class="p">[</span><span class="n">ta</span><span class="p">,</span> <span class="n">tb</span><span class="p">,</span> <span class="n">tc</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span> <span class="o">=</span> <span class="n">ttt</span><span class="o">.</span><span class="n">Game</span><span class="p">(</span><span class="n">teams_3</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">p_draw</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">result</span>
+<span class="go">[1.0, 0.0, 0.0]</span>
+</pre></div>
+</div>
+<p>The team with the highest score is the winner, and the teams with the same score are tied.
+In this way, we can specify any outcome including global draws.
+The evidence and posteriors can be queried in the same way as before.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">g</span><span class="o">.</span><span class="n">posteriors</span><span class="p">()</span>
+<span class="go">[[N(mu=3.864, sigma=4.724)], [N(mu=-1.290, sigma=4.776), N(mu=-1.290, sigma=4.776)], [N(mu=-2.574, sigma=4.274)]]</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">TrueSkillThroughTime</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="causal.html">Causal model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gaussian.html">The <cite>Gaussian</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="player.html">The <cite>Player</cite> class</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">The <cite>Game</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">The <cite>History</cite> class</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Real examples</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="player.html" title="previous chapter">The <cite>Player</cite> class</a></li>
+      <li>Next: <a href="history.html" title="next chapter">The <cite>History</cite> class</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Gustavo Landfried.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="../_sources/man/game.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
