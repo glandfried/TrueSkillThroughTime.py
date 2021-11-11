@@ -124,7 +124,7 @@ The class :code:`History` receives these four parameters and initializes the tar
 Using the method :code:`convergence()`, we obtain the TrueSkill Through Time estimates and the target's learning curve.
 The following figure shows the evolution of the true (solid line) and estimated (dotted line) target player's learning curves.
 
-.. image::  ../static/logistic0.png
+.. image::  ../_static/logistic0.png
 
 The estimated learning curves remain close to the actual skill during the whole evolution.
 

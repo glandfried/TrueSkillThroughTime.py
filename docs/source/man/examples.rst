@@ -125,10 +125,5 @@ In tennis, it is sufficient to summarize the skills in a single dimension since 
 In other examples, where the multi-dimensionality of skills could be more relevant, it should be necessary to model the skills of all agents using different components.
 
 If we consider only the games in which Nadal participates, optimality is achieved when the parameters take the values :math:`\sigma=0.35` and :math:`\gamma=0`, meaning that it is necessary to model multidimensional skills (:math:`\sigma>0`) but considering that their effect does not change over time (:math:`\gamma = 0`).
-
-.. code-block::
-
-    nadal_log_evidence = ttt.log_evidence(h_ground, agents = ["n409"])
-
 In this scenario, Nadal's ability on Clay is :math:`0.87\beta` higher than on Hard and :math:`1.05\beta` higher than on Grass. 
 
