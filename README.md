@@ -1,21 +1,27 @@
 # TrueSkillThroughTime.py
 
+## Installing
+
+The package is available in [PyPI](https://pypi.org/search/?q=trueskillthroughtime):
+
+`python3 -m pip install trueskillthroughtime`
+
+Then you can use it
+
+`import trueskillthroughtime as ttt`
+
+## Documentation
+
+See the web [https://trueskillthroughtime.readthedocs.io/en/latest/](https://trueskillthroughtime.readthedocs.io/en/latest/)
+
+----
+
 None of the commonly used skill estimators, such as TrueSkill, Glicko and Item-Response Theory, correctly models the temporal aspect, which prevents having both good initial estimates and comparability between estimates separated in time and space.
 
 TrueSkill Through Time corrects those biases by modeling the entire history of activities using a single Bayesian network.
 The use of an efficient algorithm, that requires only a few linear iterations over the data, allows scaling to millions of observations in few seconds.
 
 A full scientific documentation is discribed at [TrueSkill Through Time: the Julia, Python and R packages](https://github.com/glandfried/TrueSkillThroughTime/).
-
-### Installing
-
-The package is available in [PyPI](https://pypi.org/search/?q=trueskillthroughtime):
-
-`python3 -m pip install trueskillthroughtime`
-
-### Import
-
-`import trueskillthroughtime as ttt`
 
 ### Parameters
 
