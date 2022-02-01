@@ -2,7 +2,7 @@
 """
    TrueskillThroughTime.py
    ~~~~~~~~~~~~~~~~~~~~~~~~~~
-   :copyright: (c) 2019-2021 by Gustavo Landfried.
+   :copyright: (c) 2019-2022 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """
 
@@ -462,7 +462,6 @@ class Batch(object):
             b.events.append(event)
         b.iteration(_from)
     def posterior(self, agent):
-        #This function could be a method of the class Skill 
         return self.skills[agent].likelihood*self.skills[agent].backward*self.skills[agent].forward
     def posteriors(self):
         res = dict()
@@ -489,14 +488,12 @@ class Batch(object):
     def convergence(self, epsilon=1e-6, iterations = 20):
         step, i = (inf, inf), 0
         while gr_tuple(step, epsilon) and (i < iterations):
-            #TODO: hay que copiar el posterior?
             old = self.posteriors().copy()
             self.iteration()
             step = dict_diff(old, self.posteriors())
             i += 1
         return i
     def forward_prior_out(self, agent):
-        #TODO: Definir posterior_back en Skill
         return self.skills[agent].forward * self.skills[agent].likelihood
     def backward_prior_out(self, agent):
         N = self.skills[agent].likelihood*self.skills[agent].backward
@@ -533,8 +530,6 @@ class History(object):
         o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
         while i < len(self):
-            #TODO: t tiene que ser i en caso de time
-            #TODO: usar size y time 
             j, t = i+1, i+1 if len(times) == 0 else times[o[i]]
             while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
             if len(results) > 0:
@@ -553,7 +548,6 @@ class History(object):
             for a in self.batches[j+1].skills:
                 self.agents[a].message = self.batches[j+1].backward_prior_out(a)
             old = self.batches[j].posteriors().copy()
-            #TODO: evaluar que los bathces no tengan los agentes
             self.batches[j].new_backward_info()
             step = max_tuple(step, dict_diff(old, self.batches[j].posteriors()))
         clean(self.agents)
