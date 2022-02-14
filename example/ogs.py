@@ -1,6 +1,5 @@
 import unittest
-import sys
-sys.path.append('..')
+#sudo pip3 install trueskillthroughtime
 import trueskillthroughtime as ttt
 from importlib import reload  # Python 3.4+ only.
 reload(ttt)

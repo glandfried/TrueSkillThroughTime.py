@@ -1,5 +1,4 @@
-import sys
-sys.path.append('..')
+#sudo -H pip3 install trueskillthroughtime
 from trueskillthroughtime import *
 import timeit
 
@@ -66,6 +65,8 @@ def skill(experience, middle, maximum, slope):
 
 target = [skill(i, 500, 2, 0.0075) for i in range(N)]
 mus = []
+
+print("Code 11")
 for _ in range(1):
     opponents = normal(target,0.5)
     composition = [[["a"], [str(i)]] for i in range(N)]
@@ -87,29 +88,3 @@ df.to_csv("output/logisitc.csv", index=False)
 
 df = pd.DataFrame(mus)
 df.to_csv("output/logisitcs_mu.csv", index=False)
-
-print("Time analysis")
-import time
-start = time.time()
-h = History(composition, results, times, priors, mu=2.0, gamma=0.015)
-end = time.time()
-end - start
-start = time.time()
-h.convergence(iterations=1)
-end = time.time()
-end - start
-
-#time_tt = timeit.timeit(lambda: History(composition, results, times, priors, mu=2.0, gamma=0.015), number=10)/10
-#time_tt = timeit.timeit(lambda: h.convergence(iterations=1), number=10)/10
-
-
-#import trueskill as ts
-#env = ts.TrueSkill(mu = mu, sigma = sigma, beta = beta, tau= gamma, draw_probability=0.0)
-#r1 = env.Rating(); r2 = env.Rating(); r3 = env.Rating(); r4 = env.Rating()
-#time_tt = timeit.timeit(lambda: env.rate([[r1,r2],[r3,r4]]), number=10000)/10000
-
-#env = ts.TrueSkill(mu = mu, sigma = sigma, beta = beta, tau= gamma, draw_probability=0.25)
-#r1 = env.Rating(); r2 = env.Rating(); r3 = env.Rating(); r4 = env.Rating()
-#time_tt = timeit.timeit(lambda: env.rate([[r1],[r2,r3],[r4]],[0,1,1]), number=10000)/10000
- 
-

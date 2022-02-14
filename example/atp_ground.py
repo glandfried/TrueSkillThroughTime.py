@@ -1,6 +1,5 @@
 import pandas as pd
-import sys
-sys.path.append('..')
+#sudo pip3 install trueskillthroughtime
 from trueskillthroughtime import *
 import time
 from datetime import datetime
