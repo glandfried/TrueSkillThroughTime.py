@@ -1,7 +1,7 @@
 import unittest
 import sys
 sys.path.append('..')
-import trueskillthroughtim as ttt
+import trueskillthroughtime as ttt
 #import old
 from importlib import reload  # Python 3.4+ only.
 reload(ttt)
@@ -169,17 +169,6 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(c.mu,14.907,3)
         self.assertAlmostEqual(c.sigma,0.996,3)
         
-        # TODO:
-        #   1. Pasar este test a julia
-        #   2. Reportar ISSUE 
-        # ISSUE:
-        # import trueskill as ts
-        # env = ts.TrueSkill(draw_probability=0.25, beta=25/6, tau=0.0)
-        # _ta = [env.Player(15,1), env.Player(15,1)]
-        # _tb = [env.Player(30,2)]
-        # [r1, r2], [r3] = env.rate([_ta,_tb], [0,0])
-        # trueskill.Player(mu=15.000, sigma=1.143)
-    
     def test_NvsNvsN_mixt(self):
         ta = [ttt.Player(ttt.Gaussian(12.,3.),25.0/6,25.0/300)
              ,ttt.Player(ttt.Gaussian(18.,3.),25.0/6,25.0/300)]

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="trueskillthroughtime",
-    version="0.0.2",
+    version="0.0.3",
     author="Gustavo Landfried",
     author_email="gustavolandfried@gmail.com",
     description="The temporal learning estimator: Individual learning curves with reliable initial estimates and guaranteed comparability between distant estimates.",
@@ -20,7 +20,7 @@ setuptools.setup(
     ],
     packages=['trueskillthroughtime'],
     #python_requires=">=3.6",
-    download_url = 'https://github.com/glandfried/TrueSkillThroughTime.py/archive/refs/tags/v0.0.2.tar.gz',
+    download_url = 'https://github.com/glandfried/TrueSkillThroughTime.py/archive/refs/tags/v0.0.3.tar.gz',
     install_requires=[
           'numba',
     ]
