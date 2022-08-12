@@ -7,9 +7,6 @@
 """
 
 import math
-from numba import njit, types, typed
-
-
 
 __all__ = [
     'MU', 'SIGMA', 'BETA', 'GAMMA', 'P_DRAW', 'EPSILON', 'ITERATIONS',
@@ -31,7 +28,6 @@ inf = math.inf
 PI = SIGMA**-2
 TAU = PI * MU
 
-@njit(types.f8(types.f8))
 def erfc(x):
     #"""(http://bit.ly/zOLqbc)"""
     z = abs(x)
@@ -42,7 +38,6 @@ def erfc(x):
     r = t * math.exp(-z * z - 1.26551223 + t * h)
     return r if not(x<0) else 2.0 - r 
 
-@njit(types.f8(types.f8))
 def erfcinv(y):
     if y >= 2: return -inf
     if y < 0: raise ValueError('argument must be nonnegative')
@@ -55,7 +50,6 @@ def erfcinv(y):
         x += err / (1.12837916709551257 * math.exp(-(x**2)) - x * err)
     return x if (y < 1) else -x
 
-@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8))
 def tau_pi(mu,sigma):
     if sigma > 0.0:
         pi_ = sigma ** -2
@@ -67,7 +61,6 @@ def tau_pi(mu,sigma):
         tau_ = inf
     return tau_, pi_
 
-@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8))
 def mu_sigma(tau_,pi_):
     if pi_ > 0.0:
         sigma = math.sqrt(1/pi_)
@@ -78,23 +71,24 @@ def mu_sigma(tau_,pi_):
         sigma = inf 
         mu = 0.0
     return mu, sigma
-        
-@njit(types.f8(types.f8,types.f8,types.f8))
+
+
 def cdf(x, mu=0, sigma=1):
     z = -(x - mu) / (sigma * sqrt2)
     return (0.5 * erfc(z))
 
-@njit(types.f8(types.f8,types.f8,types.f8))
+
 def pdf(x, mu, sigma):
     normalizer = (sqrt2pi * sigma)**-1
     functional = math.exp( -((x - mu)**2) / (2*sigma**2) ) 
     return normalizer * functional
 
-@njit(types.f8(types.f8,types.f8,types.f8))
+
 def ppf(p, mu, sigma):
     return mu - sigma * sqrt2  * erfcinv(2 * p)
 
-@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8,types.f8,types.f8))
+
+
 def v_w(mu, sigma, margin,tie):
     if not tie:
         _alpha = (margin-mu)/sigma
@@ -108,7 +102,7 @@ def v_w(mu, sigma, margin,tie):
         w =  - ( u - v**2 ) 
     return v, w
 
-@njit(types.UniTuple(types.f8, 2)(types.f8,types.f8,types.f8,types.f8))
+
 def trunc(mu, sigma, margin, tie):
     v, w = v_w(mu, sigma, margin, tie)
     mu_trunc = mu + sigma * v
@@ -119,7 +113,7 @@ def approx(N, margin, tie):
     mu, sigma = trunc(N.mu, N.sigma, margin, tie)
     return Gaussian(mu, sigma)
 
-@njit(types.f8(types.f8,types.f8))
+
 def compute_margin(p_draw, sd):
     return abs(ppf(0.5-p_draw/2, 0.0, sd ))
 
