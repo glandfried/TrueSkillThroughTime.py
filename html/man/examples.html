@@ -1,23 +1,24 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Real examples &#8212; TrueSkillThroughTime 0.0.2 documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Real examples &#8212; TrueSkillThroughTime 1.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="prev" title="The History class" href="history.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
@@ -27,12 +28,14 @@
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
-  <div class="section" id="real-examples">
-<span id="sec-real-examples"></span><h1>Real examples<a class="headerlink" href="#real-examples" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="the-history-of-the-association-of-tennis-professionals">
-<h2>The History of the Association of Tennis Professionals<a class="headerlink" href="#the-history-of-the-association-of-tennis-professionals" title="Permalink to this headline">¶</a></h2>
+  <section id="real-examples">
+<span id="sec-real-examples"></span><h1>Real examples<a class="headerlink" href="#real-examples" title="Permalink to this heading">¶</a></h1>
+<section id="the-history-of-the-association-of-tennis-professionals">
+<h2>The History of the Association of Tennis Professionals<a class="headerlink" href="#the-history-of-the-association-of-tennis-professionals" title="Permalink to this heading">¶</a></h2>
 <p>In this last example, we analyze the complete history of the Association of Tennis Professionals (ATP) registered matches.
 The database has 447000 games starting in 1915 until 2020 with more than 19000 participating players and is publicly available.
 The information stored in a [single CSV file](<a class="reference external" href="https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip">https://github.com/glandfried/tennis_atp/releases/download/atp/history.csv.zip</a>).
@@ -65,11 +68,6 @@ ATP’s ranking points are updated every Monday according to the prestige of the
 There is a relative coincidence between the skill estimates and who is at any given moment at the top of the ATP rankings.
 The following Table shows the historical ranking of players in the top position of the ATP’s ranking according to the number of weeks occupying the first position.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 7%" />
-<col style="width: 53%" />
-<col style="width: 40%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>No</p></th>
 <th class="head"><p>Name</p></th>
@@ -146,9 +144,9 @@ The following Table shows the historical ranking of players in the top position 
 <p>However, TrueSkill Through Time allows comparing the relative ability of players over time: the 10th player in the historical ATP’s ranking, Hewitt, is a product of the window of opportunity that was opened in the year 2000; and the 4th most skilled player, Murray, is ranked 14th just above Nastase.
 Individual learning curves enable recognizing special periods of crisis and prolonged stability of the professional players, and even the effects of emotional slumps such as those suffered by Aggasi and Djokovic.
 It is worthwhile to note that the skill of tennis players did not increase abruptly over the years: contrary to what might have been expected, the players of the 1980s were more skilled than those of the 1990s, and reached a skill similar to what Federer, Nadal and Djokovic had in 2020, even though the latter reached higher values for a longer time.</p>
-</div>
-<div class="section" id="multidimensional-skills">
-<h2>Multidimensional skills<a class="headerlink" href="#multidimensional-skills" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="multidimensional-skills">
+<h2>Multidimensional skills<a class="headerlink" href="#multidimensional-skills" title="Permalink to this heading">¶</a></h2>
 <p>In the previous example, we summarize the players’ skills in a single dimension.
 TrueSkill Through Time allows estimating multi-dimensional skills.
 It is known that the ability of certain tennis players varies significantly depending on the surface.
@@ -189,15 +187,45 @@ To assess whether the complexity added by modeling multi-dimensionality is appro
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">h_ground</span><span class="o">.</span><span class="n">log_evidence</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>In tennis, it is sufficient to summarize the skills in a single dimension since the <code class="code docutils literal notranslate"><span class="pre">log_evidence</span></code> is maximized when the parameters of the surface’s factors (i.e. <span class="math notranslate nohighlight">\(\sigma\)</span> and <code class="code docutils literal notranslate"><span class="pre">\gamma</span></code>) vanish.
+<p>In tennis, it is sufficient to summarize the skills in a single dimension since the <code class="code docutils literal notranslate"><span class="pre">log_evidence</span></code> is maximized when the parameters of the surface’s factors (i.e. <span class="math notranslate nohighlight">\(\sigma\)</span> and <code class="code docutils literal notranslate"><span class="pre">gamma</span></code>) vanish.
 In other examples, where the multi-dimensionality of skills could be more relevant, it should be necessary to model the skills of all agents using different components.</p>
 <p>If we consider only the games in which Nadal participates, optimality is achieved when the parameters take the values <span class="math notranslate nohighlight">\(\sigma=0.35\)</span> and <span class="math notranslate nohighlight">\(\gamma=0\)</span>, meaning that it is necessary to model multidimensional skills (<span class="math notranslate nohighlight">\(\sigma&gt;0\)</span>) but considering that their effect does not change over time (<span class="math notranslate nohighlight">\(\gamma = 0\)</span>).
 In this scenario, Nadal’s ability on Clay is <span class="math notranslate nohighlight">\(0.87\beta\)</span> higher than on Hard and <span class="math notranslate nohighlight">\(1.05\beta\)</span> higher than on Grass.</p>
+</section>
+<section id="plotting-your-own-learning-curves">
+<h2>Plotting your own learning curves<a class="headerlink" href="#plotting-your-own-learning-curves" title="Permalink to this heading">¶</a></h2>
+<p>Here is an example to plot the learning curves with an uncertainty band.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">trueskillthroughtime</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="c1"># Solve you own example</span>
+<span class="n">agents</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span><span class="s2">&quot;b&quot;</span><span class="p">,</span><span class="s2">&quot;c&quot;</span><span class="p">,</span><span class="s2">&quot;d&quot;</span><span class="p">,</span><span class="s2">&quot;e&quot;</span><span class="p">]</span>
+<span class="n">composition</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">random</span><span class="o">.</span><span class="n">choices</span><span class="p">(</span><span class="n">agents</span><span class="p">,</span><span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)]</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">History</span><span class="p">(</span><span class="n">composition</span><span class="o">=</span><span class="n">composition</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">h</span><span class="o">.</span><span class="n">convergence</span><span class="p">()</span>
+
+<span class="c1"># Plot some learning curves</span>
+<span class="n">lc</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">learning_curves</span><span class="p">()</span>
+<span class="n">pp</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;t&quot;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;skill&quot;</span><span class="p">)</span>
+<span class="n">cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s2">&quot;tab10&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">agent</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">agents</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">lc</span><span class="p">[</span><span class="n">agent</span><span class="p">]]</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mu</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">lc</span><span class="p">[</span><span class="n">agent</span><span class="p">]]</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">sigma</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">lc</span><span class="p">[</span><span class="n">agent</span><span class="p">]]</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span> <span class="n">cmap</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="n">agent</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="p">[</span><span class="n">m</span><span class="o">+</span><span class="n">s</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span><span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)],</span> <span class="p">[</span><span class="n">m</span><span class="o">-</span><span class="n">s</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span><span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span> <span class="o">=</span> <span class="n">cmap</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
 </div>
-</div>
+</section>
+</section>
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
@@ -238,17 +266,25 @@ In this scenario, Nadal’s ability on Clay is <span class="math notranslate noh
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
         </div>
       </div>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, Gustavo Landfried.
+      &copy;2023, Gustavo Landfried.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
       |
       <a href="../_sources/man/examples.rst.txt"
