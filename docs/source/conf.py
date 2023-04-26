@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('../trueskillthroughtime/'))
 # -- Project information -----------------------------------------------------
 
 project = 'TrueSkillThroughTime'
-copyright = '2021, Gustavo Landfried'
+copyright = '2023, Gustavo Landfried'
 author = 'Gustavo Landfried'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.2'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------

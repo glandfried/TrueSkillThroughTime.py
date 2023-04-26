@@ -2,7 +2,7 @@
 """
    TrueskillThroughTime.py
    ~~~~~~~~~~~~~~~~~~~~~~~~~~
-   :copyright: (c) 2019-2022 by Gustavo Landfried.
+   :copyright: (c) 2019-2023 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """
 
