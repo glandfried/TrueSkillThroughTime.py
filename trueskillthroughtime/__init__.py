@@ -228,10 +228,10 @@ class team_variable(object):
     def likelihood(self):
         return self.likelihood_win*self.likelihood_lose*self.likelihood_draw
 
-def performance(team):
+def performance(team, weights):
     res = N00
-    for player in team:
-        res += player.performance()
+    for player, w in zip(team, weights):
+        res += w * player.performance()
     return res
 
 class draw_messages(object):
@@ -266,14 +266,19 @@ class diff_messages(object):
         return self.prior*self.likelihood
 
 class Game(object):
-    def __init__(self, teams, result = [], p_draw=0.0):
+    def __init__(self, teams, result = [], p_draw=0.0, weights=[]):
         if len(result) and (len(teams) != len(result)): raise ValueError("len(result) and (len(teams) != len(result))")
         if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
         if (p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result)): raise ValueError("(p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result))")
+        if (len(weights)>0) and (len(teams)!= len(weights)):raise ValueError("(len(weights)>0) & (len(teams)!= len(weights))")
+        if (len(weights)>0) and (any([len(team) != len(weight) for (team, weight) in zip(teams, weights)])): ValueError("(len(weights)>0) & exists i (len(teams[i]) != len(weights[i])")
         
         self.teams = teams
         self.result = result
         self.p_draw = p_draw
+        if not weights:
+            weights = [[1.0 for p in t] for t in teams]
+        self.weights = weights
         self.likelihoods = []
         self.evidence = 0.0
         self.compute_likelihoods()
@@ -285,7 +290,7 @@ class Game(object):
         return [len(team) for team in self.teams]
     
     def performance(self,i):
-        return performance(self.teams[i])    
+        return performance(self.teams[i], self.weights[i])    
     
     def partial_evidence(self, d, margin, tie, e):
         mu, sigma = d[e].prior.mu, d[e].prior.sigma
@@ -388,6 +393,7 @@ def clean(agents,last_time=False):
     for a in agents:
         agents[a].message = Ninf
         if last_time:
+
             agents[a].last_time = -inf
 
 class Item(object):
@@ -401,9 +407,10 @@ class Team(object):
         self.output = output
 
 class Event(object):
-    def __init__(self, teams, evidence):
+    def __init__(self, teams, evidence, weights):
         self.teams = teams
         self.evidence = evidence
+        self.weights = weights
     def __repr__(self):
         return "Event({}, {})".format(self.names,self.result)
     @property
@@ -423,14 +430,15 @@ def compute_elapsed(last_time, actual_time):
     return 0 if last_time == -inf  else ( 1 if last_time == inf else (actual_time - last_time))
 
 class Batch(object):
-    def __init__(self, composition, results = [] , time = 0, agents = dict(), p_draw=0.0):
+    def __init__(self, composition, results = [] , time = 0, agents = dict(), p_draw=0.0, weights = []):
         if (len(results)>0) and (len(composition)!= len(results)): raise ValueError("(len(results)>0) and (len(composition)!= len(results))")
-        
+        if (len(weights)>0) and (len(composition)!= len(weights)):raise ValueError("(len(weights)>0) & (len(composition)!= len(weights))")
+
         this_agents = set( [a for teams in composition for team in teams for a in team ] )
         elapsed = dict([ (a,  compute_elapsed(agents[a].last_time, time) ) for a in this_agents ])
         
         self.skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
-        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
+        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1  ) for t in range(len(composition[e])) ],0.0, weights if not weights else weights[e]) for e in range(len(composition) )]
         self.time = time
         self.agents = agents
         self.p_draw = p_draw
