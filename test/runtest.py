@@ -450,6 +450,116 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(lc["aj"][-1][1].sigma,5.420,3)
         self.assertAlmostEqual(lc["cj"][-1][1].mu,25.001,3)
         self.assertAlmostEqual(lc["cj"][-1][1].sigma,5.420,3)
+    def test_1vs1_with_weights(self):
+        ta = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
+        wa = [1.0]
+        tb = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
+        wb = [2.0]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox( ttt.Gaussian(30.625173, 7.765472), 1e-4))
+        self.assertTrue(post[1][0].isapprox( ttt.Gaussian(13.749653, 5.733840), 1e-4))
+
+        wa = [1.0]
+        wb = [0.7]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox( ttt.Gaussian(27.630080, 7.206676), 1e-4))
+        self.assertTrue(post[1][0].isapprox( ttt.Gaussian(23.158943, 7.801628), 1e-4))
+
+        wa = [1.6]
+        wb = [0.7]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox( ttt.Gaussian(26.142438, 7.573088), 1e-4))
+        self.assertTrue(post[1][0].isapprox( ttt.Gaussian(24.500183, 8.193278), 1e-4))
+        
+        wa = [1.0]; wb = [0.0]
+        ta = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
+        tb = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox( ttt.Gaussian(5.557176746, 4.0527906913), 1e-3))
+        self.assertTrue(post[1][0].isapprox( ttt.Gaussian(2.0, 6.0), 1e-4))
+        # NOTA: trueskill original tiene probelmas en la aproximación: post[1][0].mu = 1.999644 
+        
+        
+        wa = [1.0]; wb = [-1.0]
+        ta = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
+        tb = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        print("THIS TEST FAILS")
+        post = g.posteriors()
+        print(post)
+        self.assertTrue(post[0][0].isapprox( post[1][0], 1e-4))
+    def test_NvsN_with_weights(self):
+        ta = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0), ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
+        wa = [0.4, 0.8]
+        tb = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0), ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
+        wb = [0.9, 0.6]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox(  ttt.Gaussian(27.539023, 8.129639), 1e-4))
+        self.assertTrue(post[0][1].isapprox(  ttt.Gaussian(30.078046, 7.485372), 1e-4))
+        self.assertTrue(post[1][0].isapprox(  ttt.Gaussian(19.287197, 7.243465), 1e-4))
+        self.assertTrue(post[1][1].isapprox(  ttt.Gaussian(21.191465, 7.867608), 1e-4))
+
+        wa = [1.3, 1.5]
+        wb = [0.7, 0.4]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox(  ttt.Gaussian(25.190190, 8.220511), 1e-4))
+        self.assertTrue(post[0][1].isapprox(  ttt.Gaussian(25.219450, 8.182783), 1e-4))
+        self.assertTrue(post[1][0].isapprox(  ttt.Gaussian(24.897589, 8.300779), 1e-4))
+        self.assertTrue(post[1][1].isapprox(  ttt.Gaussian(24.941479, 8.322717), 1e-4))
+
+        wa = [1.6, 0.2]
+        wb = [0.7, 2.4]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox( ttt.Gaussian(31.674697, 7.501180), 1e-4))
+        self.assertTrue(post[0][1].isapprox( ttt.Gaussian(25.834337, 8.320970), 1e-4))
+        self.assertTrue(post[1][0].isapprox( ttt.Gaussian(22.079819, 8.180607), 1e-4))
+        self.assertTrue(post[1][1].isapprox( ttt.Gaussian(14.987953, 6.308469), 1e-4))
+
+    
+        tc = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
+        g = ttt.Game([ta,tc])
+        post_2vs1 = g.posteriors()
+        
+        wa = [1.0, 1.0]
+        wb = [1.0, 0.0]
+        g = ttt.Game([ta,tb], weights=[wa,wb])
+        post = g.posteriors()
+        self.assertTrue(post[0][0].isapprox(post_2vs1[0][0], 1e-4))
+        self.assertTrue(post[0][1].isapprox(post_2vs1[0][1], 1e-4))
+        self.assertTrue(post[1][0].isapprox(post_2vs1[1][0], 1e-4))
+        self.assertTrue(post[1][1].isapprox(tb[1].prior, 1e-4))
+    def test_1vs1_TTT_with_weights(self):
+        composition = [[["a"],["b"]], [["b"],["a"]]]
+        weights = [[[5.0],[4.0]],[[5.0],[4.0]]]
+        h = ttt.History(composition, mu=2.0, beta=1.0, sigma=6.0, gamma=0.0, weights=weights)
+        lc = h.learning_curves()
+        print("HELLO")
+        print(lc["a"])
+        self.assertTrue(lc["a"][0][1].isapprox( ttt.Gaussian(5.53765944, 4.758722), 1e-4))
+        self.assertTrue(lc["b"][0][1].isapprox( ttt.Gaussian(-0.83012755, 5.2395689), 1e-4))
+        self.assertTrue(lc["a"][1][1].isapprox( ttt.Gaussian(1.7922776, 4.099566689), 1e-4))
+        self.assertTrue(lc["b"][1][1].isapprox( ttt.Gaussian(4.8455331752, 3.7476161), 1e-4))
+        
+        h.convergence()
+        lc = h.learning_curves()
+        self.assertTrue(lc["a"][0][1].isapprox( ttt.Gaussian(lc["a"][0][1].mu, lc["a"][0][1].sigma), 1e-4))
+        self.assertTrue(lc["b"][0][1].isapprox( ttt.Gaussian(lc["a"][0][1].mu, lc["a"][0][1].sigma), 1e-4))
+        self.assertTrue(lc["a"][1][1].isapprox( ttt.Gaussian(lc["a"][0][1].mu, lc["a"][0][1].sigma), 1e-4))
+        self.assertTrue(lc["b"][1][1].isapprox( ttt.Gaussian(lc["a"][0][1].mu, lc["a"][0][1].sigma), 1e-4))
+        
+        # In the julia tests but is this really doing anything?
+        composition = [[["a"],["b"]], [["b"],["a"]]]
+        weights = [[[1.0],[4.0]],[[5.0],[4.0]]]
+        h = ttt.History(composition, mu=2.0, beta=1.0, sigma=6.0, gamma=0.0, weights=weights)
+        lc = h.learning_curves()
+    
     def gamma(self):
         composition = [ [["a"],["b"]], [["a"],["b"]]]
         results = [[1,0],[1,0]]
