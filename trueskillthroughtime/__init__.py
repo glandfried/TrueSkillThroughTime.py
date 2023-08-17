@@ -373,7 +373,7 @@ class Game(object):
         return [ t[o[e]].likelihood for e in range(len(t)) ] 
     
     def compute_likelihoods(self):
-        if len(self.teams)>1:
+        if len(self.teams)>2 or [w for t in self.weights for w in t if w != 1.0]:
             m_t_ft = self.likelihood_teams()
             self.likelihoods = [[ (1/self.weights[e][i] if self.weights[e][i]!=0.0 else inf) * (m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].prior*self.weights[e][i])) for i in range(len(self.teams[e])) ] for e in range(len(self))]
         else:
