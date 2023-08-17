@@ -488,9 +488,7 @@ class tests(unittest.TestCase):
         ta = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
         tb = [ttt.Player(ttt.Gaussian(2.0,6.0),1.0,0.0)]
         g = ttt.Game([ta,tb], weights=[wa,wb])
-        print("THIS TEST FAILS")
         post = g.posteriors()
-        print(post)
         self.assertTrue(post[0][0].isapprox( post[1][0], 1e-4))
     def test_NvsN_with_weights(self):
         ta = [ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0), ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,0.0)]
@@ -540,8 +538,6 @@ class tests(unittest.TestCase):
         weights = [[[5.0],[4.0]],[[5.0],[4.0]]]
         h = ttt.History(composition, mu=2.0, beta=1.0, sigma=6.0, gamma=0.0, weights=weights)
         lc = h.learning_curves()
-        print("HELLO")
-        print(lc["a"])
         self.assertTrue(lc["a"][0][1].isapprox( ttt.Gaussian(5.53765944, 4.758722), 1e-4))
         self.assertTrue(lc["b"][0][1].isapprox( ttt.Gaussian(-0.83012755, 5.2395689), 1e-4))
         self.assertTrue(lc["a"][1][1].isapprox( ttt.Gaussian(1.7922776, 4.099566689), 1e-4))
