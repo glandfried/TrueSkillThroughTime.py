@@ -176,9 +176,21 @@ class Gaussian(object):
     def __sub__(self, M):
         return Gaussian(self.mu - M.mu, math.sqrt(self.sigma**2 + M.sigma**2))
     def __mul__(self, M):
-        _tau, _pi = self.tau + M.tau, self.pi + M.pi
-        mu, sigma = mu_sigma(_tau, _pi)
-        return Gaussian(mu, sigma)        
+        if type(M) == float:
+            if M == inf: 
+                return Ninf
+            else:
+                return Gaussian(M*self.mu, abs(M)*self.sigma)
+        else:
+            if self.sigma == 0.0 or M.sigma == 0.0:
+                mu = self.mu/((self.sigma**2/M.sigma**2) + 1) if self.sigma == 0.0 else M.mu/((M.sigma**2/self.sigma**2) + 1)
+                sigma = 0.0
+            else:
+                _tau, _pi = self.tau + M.tau, self.pi + M.pi
+                mu, sigma = mu_sigma(_tau, _pi)
+            return Gaussian(mu, sigma)
+    def __rmul__(self, other):
+        return self.__mul__(other)
     def __truediv__(self, M):
         _tau = self.tau - M.tau; _pi = self.pi - M.pi
         mu, sigma = mu_sigma(_tau, _pi)
@@ -228,10 +240,10 @@ class team_variable(object):
     def likelihood(self):
         return self.likelihood_win*self.likelihood_lose*self.likelihood_draw
 
-def performance(team):
+def performance(team, weights):
     res = N00
-    for player in team:
-        res += player.performance()
+    for player, w in zip(team, weights):
+        res += player.performance() * w
     return res
 
 class draw_messages(object):
@@ -266,14 +278,19 @@ class diff_messages(object):
         return self.prior*self.likelihood
 
 class Game(object):
-    def __init__(self, teams, result = [], p_draw=0.0):
+    def __init__(self, teams, result = [], p_draw=0.0, weights=[]):
         if len(result) and (len(teams) != len(result)): raise ValueError("len(result) and (len(teams) != len(result))")
         if (0.0 > p_draw) or (1.0 <= p_draw): raise ValueError ("0.0 <= proba < 1.0")
         if (p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result)): raise ValueError("(p_draw == 0.0) and (len(result)>0) and (len(set(result))!=len(result))")
+        if (len(weights)>0) and (len(teams)!= len(weights)):raise ValueError("(len(weights)>0) & (len(teams)!= len(weights))")
+        if (len(weights)>0) and (any([len(team) != len(weight) for (team, weight) in zip(teams, weights)])): ValueError("(len(weights)>0) & exists i (len(teams[i]) != len(weights[i])")
         
         self.teams = teams
         self.result = result
         self.p_draw = p_draw
+        if not weights:
+            weights = [[1.0 for p in t] for t in teams]
+        self.weights = weights
         self.likelihoods = []
         self.evidence = 0.0
         self.compute_likelihoods()
@@ -285,7 +302,7 @@ class Game(object):
         return [len(team) for team in self.teams]
     
     def performance(self,i):
-        return performance(self.teams[i])    
+        return performance(self.teams[i], self.weights[i])    
     
     def partial_evidence(self, d, margin, tie, e):
         mu, sigma = d[e].prior.mu, d[e].prior.sigma
@@ -297,6 +314,7 @@ class Game(object):
         o = sortperm(r, reverse=True) 
         t = [team_variable(g.performance(o[e]),Ninf, Ninf, Ninf) for e in range(len(g))]
         d = [diff_messages(t[e].prior - t[e+1].prior, Ninf) for e in range(len(g)-1)]
+        
         tie = [r[o[e]]==r[o[e+1]] for e in range(len(d))]
         margin = [0.0 if g.p_draw==0.0 else compute_margin(g.p_draw, math.sqrt( sum([a.beta**2 for a in g.teams[o[e]]]) + sum([a.beta**2 for a in g.teams[o[e+1]]]) )) for e in range(len(d))] 
         g.evidence = 1.0
@@ -355,12 +373,12 @@ class Game(object):
         return [ t[o[e]].likelihood for e in range(len(t)) ] 
     
     def compute_likelihoods(self):
-        if len(self.teams)>2:
+        if len(self.teams)>2 or len([w for t in self.weights for w in t if w != 1.0])>0:
             m_t_ft = self.likelihood_teams()
-            self.likelihoods = [[ m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].prior) for i in range(len(self.teams[e])) ] for e in range(len(self))]
+            self.likelihoods = [[ (1/self.weights[e][i] if self.weights[e][i]!=0.0 else inf) * (m_t_ft[e] - self.performance(e).exclude(self.teams[e][i].prior*self.weights[e][i])) for i in range(len(self.teams[e])) ] for e in range(len(self))]
         else:
-            self.likelihoods = self.likelihood_analitico()            
-        
+            self.likelihoods = self.likelihood_analitico()    
+       
     def posteriors(self):
         return [[ self.likelihoods[e][i] * self.teams[e][i].prior for i in range(len(self.teams[e]))] for e in range(len(self))]
 
@@ -388,6 +406,7 @@ def clean(agents,last_time=False):
     for a in agents:
         agents[a].message = Ninf
         if last_time:
+
             agents[a].last_time = -inf
 
 class Item(object):
@@ -401,9 +420,10 @@ class Team(object):
         self.output = output
 
 class Event(object):
-    def __init__(self, teams, evidence):
+    def __init__(self, teams, evidence, weights):
         self.teams = teams
         self.evidence = evidence
+        self.weights = weights
     def __repr__(self):
         return "Event({}, {})".format(self.names,self.result)
     @property
@@ -423,14 +443,15 @@ def compute_elapsed(last_time, actual_time):
     return 0 if last_time == -inf  else ( 1 if last_time == inf else (actual_time - last_time))
 
 class Batch(object):
-    def __init__(self, composition, results = [] , time = 0, agents = dict(), p_draw=0.0):
+    def __init__(self, composition, results = [] , time = 0, agents = dict(), p_draw=0.0, weights = []):
         if (len(results)>0) and (len(composition)!= len(results)): raise ValueError("(len(results)>0) and (len(composition)!= len(results))")
-        
+        if (len(weights)>0) and (len(composition)!= len(weights)):raise ValueError("(len(weights)>0) & (len(composition)!= len(weights))")
+
         this_agents = set( [a for teams in composition for team in teams for a in team ] )
         elapsed = dict([ (a,  compute_elapsed(agents[a].last_time, time) ) for a in this_agents ])
         
         self.skills = dict([ (a, Skill(agents[a].receive(elapsed[a]) ,Ninf ,Ninf , elapsed[a])) for a in this_agents  ])
-        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1  ) for t in range(len(composition[e])) ],0.0) for e in range(len(composition) )]
+        self.events = [Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t])) ], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1  ) for t in range(len(composition[e])) ],0.0, weights if not weights else weights[e]) for e in range(len(composition) )]
         self.time = time
         self.agents = agents
         self.p_draw = p_draw
@@ -452,7 +473,7 @@ class Batch(object):
                 b.skills[a].forward = b.agents[a].receive(elapsed)
         _from = len(b)+1
         for e in range(len(composition)):
-            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1 ) for t in range(len(composition[e])) ] , 0.0)
+            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1 ) for t in range(len(composition[e])) ] , 0.0, weights if not weights else weights[e])
             b.events.append(event)
         b.iteration(_from)
     def posterior(self, agent):
@@ -473,7 +494,8 @@ class Batch(object):
         for e in range(_from,len(self)):#e=0
             teams = self.within_priors(e)
             result = self.events[e].result
-            g = Game(teams, result, self.p_draw)
+            weights = self.events[e].weights
+            g = Game(teams, result, self.p_draw, weights)
             for (t, team) in enumerate(self.events[e].teams):
                 for (i, item) in enumerate(team.items):
                     self.skills[item.name].likelihood = (self.skills[item.name].likelihood / item.likelihood) * g.likelihoods[t][i]
@@ -502,10 +524,11 @@ class Batch(object):
         return self.iteration()
 
 class History(object):
-    def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW):
+    def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, weights=[]):
         if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
         if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
-        
+        if (len(weights) > 0) and (len(composition) != len(weights)): raise ValueError("(length(weights) > 0) & (length(composition) != length(weights))")
+            
         self.size = len(composition)
         self.batches = []
         self.agents = dict([ (a, Agent(priors[a] if a in priors else Player(Gaussian(mu, sigma), beta, gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
@@ -514,22 +537,22 @@ class History(object):
         self.gamma = gamma
         self.p_draw = p_draw
         self.time = len(times)>0
-        self.trueskill(composition,results,times)
+        self.trueskill(composition,results,times, weights)
         
     def __repr__(self):
         return "History(Events={}, Batches={}, Agents={})".format(self.size,len(self.batches),len(self.agents))
     def __len__(self):
         return self.size
-    def trueskill(self, composition, results, times):
+    def trueskill(self, composition, results, times, weights):
         o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
         while i < len(self):
             j, t = i+1, i+1 if len(times) == 0 else times[o[i]]
             while (len(times)>0) and (j < len(self)) and (times[o[j]] == t): j += 1
             if len(results) > 0:
-                b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.p_draw)
+                b = Batch([composition[k] for k in o[i:j]],[results[k] for k in o[i:j]], t, self.agents, self.p_draw, weights if not weights else [weights[k] for k in o[i:j]])
             else:
-                b = Batch([composition[k] for k in o[i:j]],[], t, self.agents, self.p_draw)
+                b = Batch([composition[k] for k in o[i:j]],[], t, self.agents, self.p_draw, weights if not weights else [weights[k] for k in o[i:j]])
             self.batches.append(b)
             for a in b.skills:
                 self.agents[a].last_time = t if self.time else inf
