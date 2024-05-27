@@ -578,6 +578,18 @@ class tests(unittest.TestCase):
         mu100, sigma100 = h.batches[0].posterior("a")
         self.assertAlmostEqual(mu100, 6.555467)
         self.assertAlmostEqual(sigma100, 9.6449906)
+
+    def test_add_history(self):
+        composition = [ [["a","b"],["c","d"]], [["e","f"] , ["b","c"]], [["a","d"], ["e","f"]]  ]
+        results = [[1,0],[0,1],[1,0]]
+        times =[100,300,500]
+        h = ttt.History(composition=[composition[0]], results=[results[0]],times=[times[0]], mu=0.0,sigma=6.0, beta=1.0, gamma=0.0)
+        h.convergence()
+        h.add_history(composition=[composition[1]], results=[results[1]],times=[times[1]])
+        h.add_history(composition=[composition[2]], results=[results[2]],times=[times[2]])
+        h.learning_curves()
+
+
     def ToDo(self):
         print("Ningun toDo")
         

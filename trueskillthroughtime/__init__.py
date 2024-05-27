@@ -546,10 +546,11 @@ class History(object):
         if (len(weights) > 0) and (len(composition) != len(weights)): raise ValueError("(length(weights) > 0) & (length(composition) != length(weights))")
         if self.time is None:
             self.time = len(times) > 0
+            self.latest_time = max(times)
         else:
             if self.time is True:
                 if len(times) == 0: raise ValueError(" len(times) error ")
-                if min(times) > self.latest_time: raise ValueError(" len(times) error ")
+                self.latest_time = max(times)
             else:
                 if len(times) > 0: raise ValueError(" len(times) error ")
         self.size += len(composition)
@@ -562,8 +563,7 @@ class History(object):
                 p = Player(Gaussian(self.mu, self.sigma), self.beta, self.gamma)
             self.agents[a] = Agent(p, Ninf, -inf)
         self.trueskill(composition,results,times, weights)
-        if self.time:
-            self.latest_time = max(times)
+
     def trueskill(self, composition, results, times, weights):
         o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
