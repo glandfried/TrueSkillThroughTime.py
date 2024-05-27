@@ -248,26 +248,6 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(post["b"].sigma,5.419,3)
         self.assertAlmostEqual(post["c"].mu,25.000,3)
         self.assertAlmostEqual(post["c"].sigma,5.419,3)
-    def test_add_events_batch(self):
-        pass
-        #agents= dict()
-        #for k in ["a", "b", "c", "d", "e", "f"]:
-            #agents[k] = ttt.Agent(ttt.Player(ttt.Gaussian(25., 25.0/3), 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
-        #composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
-        #results = [[1,0],[0,1],[1,0]]
-        #b = ttt.Batch(composition = composition, results = results, time=0, agents = agents)
-        #b.convergence()
-        #b.add_events(composition,results)
-        #self.assertEqual(len(b),6)
-        #post = b.posteriors()
-        #b.iteration(trace=True)
-        #b.iteration(trace=True)        
-        #self.assertAlmostEqual(post["a"].mu,25.000,3)
-        #self.assertAlmostEqual(post["a"].sigma,3.88,3)
-        #self.assertAlmostEqual(post["b"].mu,25.000,3)
-        #self.assertAlmostEqual(post["b"].sigma,3.88,3)
-        #self.assertAlmostEqual(post["c"].mu,25.000,3)
-        #self.assertAlmostEqual(post["c"].sigma,3.88,3)
     def test_history_init(self):
         composition = [ [["aa"],["b"]], [["aa"],["c"]] , [["b"],["c"]] ]
         results = [[1,0],[0,1],[1,0]]
@@ -579,6 +559,8 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(mu100, 6.555467)
         self.assertAlmostEqual(sigma100, 9.6449906)
 
+    ## add_history and add_events methods.
+
     def test_add_history(self):
         composition = [ [["a","b"],["c","d"]], [["e","f"] , ["b","c"]], [["a","d"], ["e","f"]]  ]
         results = [[1,0],[0,1],[1,0]]
@@ -589,6 +571,26 @@ class tests(unittest.TestCase):
         h.add_history(composition=[composition[2]], results=[results[2]],times=[times[2]])
         h.learning_curves()
 
+    def test_add_events_batch(self):
+        pass
+        #agents= dict()
+        #for k in ["a", "b", "c", "d", "e", "f"]:
+            #agents[k] = ttt.Agent(ttt.Player(ttt.Gaussian(25., 25.0/3), 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
+        #composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
+        #results = [[1,0],[0,1],[1,0]]
+        #b = ttt.Batch(composition = composition, results = results, time=0, agents = agents)
+        #b.convergence()
+        #b.add_events(composition,results)
+        #self.assertEqual(len(b),6)
+        #post = b.posteriors()
+        #b.iteration(trace=True)
+        #b.iteration(trace=True)
+        #self.assertAlmostEqual(post["a"].mu,25.000,3)
+        #self.assertAlmostEqual(post["a"].sigma,3.88,3)
+        #self.assertAlmostEqual(post["b"].mu,25.000,3)
+        #self.assertAlmostEqual(post["b"].sigma,3.88,3)
+        #self.assertAlmostEqual(post["c"].mu,25.000,3)
+        #self.assertAlmostEqual(post["c"].sigma,3.88,3)
 
     def ToDo(self):
         print("Ningun toDo")
