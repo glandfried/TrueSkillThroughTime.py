@@ -128,7 +128,15 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(a.sigma,2.709956,4)
         self.assertAlmostEqual(b.mu,28.67289,4)
         self.assertAlmostEqual(b.sigma,1.916471,4)
-        
+    def draw_evidence_game(self):
+        home = ttt.Player(ttt.Gaussian(0,0.001))
+        away = ttt.Player(ttt.Gaussian(0,0.001))
+        teams = [[home], [away]]
+        result = [0, 0]
+        g = ttt.Game(teams, result, p_draw=0.25)
+        lhs = g.likelihoods[0][0]
+        ev = g.evidence
+        self.assertAlmostEqual(ev,0.25)
     def test_1vs1vs1_draw(self):
         [a], [b], [c] = ttt.Game([[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)],[ttt.Player(ttt.Gaussian(25.0,25.0/3),25.0/6,25.0/300)]], [0,0,0],0.25).posteriors()
         self.assertAlmostEqual(a.mu,25.000,3)
