@@ -2,7 +2,7 @@
 """
    TrueskillThroughTime.py
    ~~~~~~~~~~~~~~~~~~~~~~~~~~
-   :copyright: (c) 2019-2023 by Gustavo Landfried.
+   :copyright: (c) 2019-2024 by Gustavo Landfried.
    :license: BSD, see LICENSE for more details.
 """
 
@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-#: The default standar deviation of the performances. Is the scale of estimates.
+#: The default standard deviation of the performances. Is the scale of estimates.
 BETA = 1.0
 MU = 0.0
 SIGMA = BETA * 6
@@ -208,6 +208,8 @@ N01 = Gaussian(0,1)
 N00 = Gaussian(0,0)
 Ninf = Gaussian(0,inf)
 Nms = Gaussian(MU, SIGMA)
+
+
 
 class Player(object):
     def __init__(self, prior = Gaussian(MU, SIGMA), beta=BETA, gamma=GAMMA, prior_draw=Ninf):
