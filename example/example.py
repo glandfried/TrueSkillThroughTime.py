@@ -88,3 +88,10 @@ df.to_csv("output/logisitc.csv", index=False)
 
 df = pd.DataFrame(mus)
 df.to_csv("output/logisitcs_mu.csv", index=False)
+
+
+
+
+
+
+
