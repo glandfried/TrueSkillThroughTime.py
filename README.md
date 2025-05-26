@@ -12,7 +12,20 @@ Then you can use it
 
 ## Documentation
 
-See the web [https://trueskillthroughtime.readthedocs.io/en/latest/](https://trueskillthroughtime.readthedocs.io/en/latest/)
+See the web [https://trueskillthroughtime.readthedocs.io/en/latest/](https://trueskillthroughtime.readthedocs.io/en/latest/).
+
+And read the [paper published in the Journal of Statistical Software](https://www.jstatsoft.org/index.php/jss/article/view/v112i06/4680) with the technical documentation.
+
+```
+@article{landfried2025-learning,
+  title={TrueSkill Through Time: Reliable Initial Skill Estimates and Historical Comparability with Julia, Python, and R},
+  author={Landfried, Gustavo and Mocskos, Esteban},
+  journal={Journal of Statistical Software},
+  volume={112},
+  pages={1--41},
+  year={2025}
+}
+```
 
 ----
 
