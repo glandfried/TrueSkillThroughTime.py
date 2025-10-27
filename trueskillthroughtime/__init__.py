@@ -467,9 +467,9 @@ class Batch(object):
         b=self
         this_agents = set( [a for teams in composition for team in teams for a in team ] )
         for a in this_agents:
-            elapsed = compute_elapsed(b.agents[a].last_time , b.time )  
-            if a in b.skills:
-                b.skills[a] = Skill(b.agents[a].receive(elapsed) ,Ninf ,Ninf , elapsed)
+            elapsed = compute_elapsed(b.agents[a].last_time, b.time)
+            if a not in b.skills:
+                b.skills[a] = Skill(b.agents[a].receive(elapsed), Ninf, Ninf, elapsed)
             else:
                 b.skills[a].elapsed = elapsed
                 b.skills[a].forward = b.agents[a].receive(elapsed)
