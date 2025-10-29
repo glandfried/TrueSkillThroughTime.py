@@ -1,3 +1,6 @@
 [submodule "contributors/apiss2"]
 	path = contributors/apiss2
 	url = git@github.com:apiss2/TrueSkillThroughTime.py.git
+[submodule "forks/korentomas"]
+	path = forks/korentomas
+	url = git@github.com:korentomas/TrueSkillThroughTime.py.git
