@@ -463,20 +463,32 @@ class Batch(object):
         return "Batch(time={}, events={})".format(self.time,self.events)
     def __len__(self):
         return len(self.events)
-    def add_events(self, composition, results = []):
-        b=self
-        this_agents = set( [a for teams in composition for team in teams for a in team ] )
+    def add_events(self, composition, results = [], weights = []):
+        """Add new events to an existing batch."""
+        b = self
+        this_agents = set([a for teams in composition for team in teams for a in team])
+
         for a in this_agents:
-            elapsed = compute_elapsed(b.agents[a].last_time , b.time )  
-            if a in b.skills:
-                b.skills[a] = Skill(b.agents[a].receive(elapsed) ,Ninf ,Ninf , elapsed)
+            elapsed = compute_elapsed(b.agents[a].last_time, b.time)
+            if a not in b.skills:
+                b.skills[a] = Skill(b.agents[a].receive(elapsed), Ninf, Ninf, elapsed)
             else:
                 b.skills[a].elapsed = elapsed
                 b.skills[a].forward = b.agents[a].receive(elapsed)
-        _from = len(b)+1
+
+        _from = len(b)
+
         for e in range(len(composition)):
-            event = Event([Team([Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))], results[e][t] if len(results) > 0 else len(composition[e]) - t - 1 ) for t in range(len(composition[e])) ] , 0.0, weights if not weights else weights[e])
+            event = Event(
+                [Team(
+                    [Item(composition[e][t][a], Ninf) for a in range(len(composition[e][t]))],
+                    results[e][t] if len(results) > 0 else len(composition[e]) - t - 1
+                ) for t in range(len(composition[e]))],
+                0.0,
+                weights[e] if weights and e < len(weights) else []
+            )
             b.events.append(event)
+
         b.iteration(_from)
     def posterior(self, agent):
         return self.skills[agent].likelihood*self.skills[agent].backward*self.skills[agent].forward
@@ -604,3 +616,109 @@ class History(object):
         return res
     def log_evidence(self):
         return sum([math.log(event.evidence) for b in self.batches for event in b.events])
+
+    def add_events(self, composition, results=[], times=[], priors=dict(), weights=[]):
+        """
+        Add new events to an existing History object.
+
+        This method allows incremental updates without recomputing from scratch.
+        New events must occur after all existing events when using times.
+
+        Parameters:
+        -----------
+        composition : list
+            List of team compositions for new games
+        results : list, optional
+            List of results for new games
+        times : list, optional
+            List of timestamps for new games (must be after existing times)
+        priors : dict, optional
+            Prior distributions for new players
+        weights : list, optional
+            Weights for team contributions
+        """
+        if (len(results) > 0) and (len(composition) != len(results)):
+            raise ValueError("len(composition) != len(results)")
+        if (len(times) > 0) and (len(composition) != len(times)):
+            raise ValueError("len(composition) != len(times)")
+        if (len(weights) > 0) and (len(composition) != len(weights)):
+            raise ValueError("len(composition) != len(weights)")
+
+        if self.time and not times:
+            raise ValueError("History uses times, but no times provided for new events")
+        if not self.time and times:
+            raise ValueError("History doesn't use times, but times provided for new events")
+
+        this_agents = set([a for teams in composition for team in teams for a in team])
+        for a in this_agents:
+            if a not in self.agents:
+                prior = priors[a] if a in priors else Player(Gaussian(self.mu, self.sigma), BETA, self.gamma)
+                self.agents[a] = Agent(prior, Ninf, -inf)
+
+        clean(self.agents, last_time=True)
+
+        n = len(composition)
+        o = sortperm(times) if times else list(range(n))
+        i = 0
+        batch_idx = 0
+
+        while i < n:
+            j = i + 1
+            if times:
+                t = times[o[i]]
+                while j < n and times[o[j]] == t:
+                    j += 1
+            else:
+                t = inf
+
+            while batch_idx < len(self.batches) and (not self.time or self.batches[batch_idx].time < t):
+                if batch_idx > 0:
+                    self.batches[batch_idx].new_forward_info()
+
+                for a in self.batches[batch_idx].skills:
+                    if a in this_agents:
+                        elapsed = compute_elapsed(self.agents[a].last_time, self.batches[batch_idx].time)
+                        self.batches[batch_idx].skills[a].elapsed = elapsed
+                    self.agents[a].last_time = self.batches[batch_idx].time if self.time else inf
+                    self.agents[a].message = self.batches[batch_idx].forward_prior_out(a)
+                batch_idx += 1
+
+            if batch_idx < len(self.batches) and self.time and self.batches[batch_idx].time == t:
+                b = self.batches[batch_idx]
+                if len(results) > 0:
+                    b.add_events([composition[k] for k in o[i:j]], [results[k] for k in o[i:j]])
+                else:
+                    b.add_events([composition[k] for k in o[i:j]], [])
+            else:
+                if len(results) > 0:
+                    b = Batch([composition[k] for k in o[i:j]], [results[k] for k in o[i:j]],
+                             t, self.agents, self.p_draw,
+                             [weights[k] for k in o[i:j]] if weights else [])
+                else:
+                    b = Batch([composition[k] for k in o[i:j]], [],
+                             t, self.agents, self.p_draw,
+                             [weights[k] for k in o[i:j]] if weights else [])
+                self.batches.insert(batch_idx, b)
+                batch_idx += 1
+
+            for a in b.skills:
+                self.agents[a].last_time = t if self.time else inf
+                self.agents[a].message = b.forward_prior_out(a)
+
+            i = j
+
+        while batch_idx < len(self.batches):
+            self.batches[batch_idx].new_forward_info()
+            for a in self.batches[batch_idx].skills:
+                if a in this_agents:
+                    elapsed = compute_elapsed(self.agents[a].last_time, self.batches[batch_idx].time)
+                    self.batches[batch_idx].skills[a].elapsed = elapsed
+                self.agents[a].last_time = self.batches[batch_idx].time if self.time else inf
+                self.agents[a].message = self.batches[batch_idx].forward_prior_out(a)
+            batch_idx += 1
+
+        # Update total size
+        self.size += n
+
+        # Run iteration to update all messages
+        self.iteration()

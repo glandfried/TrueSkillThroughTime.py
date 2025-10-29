@@ -257,25 +257,30 @@ class tests(unittest.TestCase):
         self.assertAlmostEqual(post["c"].mu,25.000,3)
         self.assertAlmostEqual(post["c"].sigma,5.419,3)
     def test_add_events_batch(self):
-        pass
-        #agents= dict()
-        #for k in ["a", "b", "c", "d", "e", "f"]:
-            #agents[k] = ttt.Agent(ttt.Player(ttt.Gaussian(25., 25.0/3), 25.0/6, 25.0/300 ) , ttt.Ninf, -ttt.inf)
-        #composition = [ [["a"],["b"]], [["a"],["c"]] , [["b"],["c"]] ]
-        #results = [[1,0],[0,1],[1,0]]
-        #b = ttt.Batch(composition = composition, results = results, time=0, agents = agents)
-        #b.convergence()
-        #b.add_events(composition,results)
-        #self.assertEqual(len(b),6)
-        #post = b.posteriors()
-        #b.iteration(trace=True)
-        #b.iteration(trace=True)        
-        #self.assertAlmostEqual(post["a"].mu,25.000,3)
-        #self.assertAlmostEqual(post["a"].sigma,3.88,3)
-        #self.assertAlmostEqual(post["b"].mu,25.000,3)
-        #self.assertAlmostEqual(post["b"].sigma,3.88,3)
-        #self.assertAlmostEqual(post["c"].mu,25.000,3)
-        #self.assertAlmostEqual(post["c"].sigma,3.88,3)
+        """Test adding events to an existing Batch."""
+        agents = dict()
+        for k in ["a", "b", "c", "d", "e", "f"]:
+            agents[k] = ttt.Agent(ttt.Player(ttt.Gaussian(25., 25.0/3), 25.0/6, 25.0/300), ttt.Ninf, -ttt.inf)
+        composition = [[["a"],["b"]], [["a"],["c"]], [["b"],["c"]]]
+        results = [[1,0],[0,1],[1,0]]
+        b = ttt.Batch(composition=composition, results=results, time=0, agents=agents)
+        b.convergence()
+
+        # Add the same events again
+        b.add_events(composition, results)
+        self.assertEqual(len(b), 6)
+
+        # Run convergence
+        b.convergence()
+        post = b.posteriors()
+
+        # With doubled events, skills should converge to equal values
+        self.assertAlmostEqual(post["a"].mu, 25.000, 2)
+        self.assertAlmostEqual(post["a"].sigma, 3.88, 2)
+        self.assertAlmostEqual(post["b"].mu, 25.000, 2)
+        self.assertAlmostEqual(post["b"].sigma, 3.88, 2)
+        self.assertAlmostEqual(post["c"].mu, 25.000, 2)
+        self.assertAlmostEqual(post["c"].sigma, 3.88, 2)
     def test_history_init(self):
         composition = [ [["aa"],["b"]], [["aa"],["c"]] , [["b"],["c"]] ]
         results = [[1,0],[0,1],[1,0]]
@@ -586,6 +591,110 @@ class tests(unittest.TestCase):
         mu100, sigma100 = h.batches[0].posterior("a")
         self.assertAlmostEqual(mu100, 6.555467)
         self.assertAlmostEqual(sigma100, 9.6449906)
+    def test_history_add_events(self):
+        """Test adding events to an existing History."""
+        # Initial history with 2 games
+        composition = [[["a"],["b"]], [["a"],["c"]]]
+        results = [[1,0],[0,1]]
+        h = ttt.History(composition, results, mu=0.0, sigma=6.0, beta=1.0, gamma=0.0)
+        h.convergence(verbose=False)
+
+        # Check initial state
+        self.assertEqual(len(h), 2)
+        self.assertEqual(len(h.batches), 2)
+
+        # Add a new game
+        new_composition = [[["b"],["c"]]]
+        new_results = [[1,0]]
+        h.add_events(new_composition, new_results)
+
+        # Check updated state
+        self.assertEqual(len(h), 3)
+        self.assertEqual(len(h.batches), 3)
+
+        # Run convergence
+        h.convergence(verbose=False)
+
+        # Check that all players have reasonable skills
+        lc = h.learning_curves()
+        self.assertIn("a", lc)
+        self.assertIn("b", lc)
+        self.assertIn("c", lc)
+
+    def test_history_add_events_with_times(self):
+        """Test adding events with timestamps."""
+        # Initial history with times
+        composition = [[["a"],["b"]], [["a"],["c"]]]
+        results = [[1,0],[0,1]]
+        times = [100, 200]
+        h = ttt.History(composition, results, times, mu=0.0, sigma=6.0, beta=1.0, gamma=0.03)
+        h.convergence(verbose=False)
+
+        # Add new events with later times
+        new_composition = [[["b"],["c"]], [["a"],["b"]]]
+        new_results = [[1,0], [0,1]]
+        new_times = [300, 400]
+        h.add_events(new_composition, new_results, new_times)
+
+        # Check state
+        self.assertEqual(len(h), 4)
+        self.assertEqual(len(h.batches), 4)
+
+        # Verify temporal ordering
+        for i in range(len(h.batches)-1):
+            self.assertLessEqual(h.batches[i].time, h.batches[i+1].time)
+
+    def test_history_add_events_same_time(self):
+        """Test adding events at the same time as existing batch."""
+        composition = [[["a"],["b"]]]
+        results = [[1,0]]
+        times = [100]
+        h = ttt.History(composition, results, times, mu=0.0, sigma=6.0)
+
+        # Add event at same time
+        new_composition = [[["c"],["d"]]]
+        new_results = [[1,0]]
+        new_times = [100]
+        h.add_events(new_composition, new_results, new_times)
+
+        # Should be in same batch
+        self.assertEqual(len(h.batches), 1)
+        self.assertEqual(len(h.batches[0]), 2)
+
+    def test_history_add_events_new_players(self):
+        """Test adding events with new players."""
+        composition = [[["a"],["b"]]]
+        results = [[1,0]]
+        h = ttt.History(composition, results, mu=25.0, sigma=8.333)
+
+        # Add events with new players
+        new_composition = [[["c"],["d"]], [["a"],["c"]]]
+        new_results = [[1,0], [0,1]]
+        h.add_events(new_composition, new_results)
+
+        # Check all players exist
+        self.assertIn("a", h.agents)
+        self.assertIn("b", h.agents)
+        self.assertIn("c", h.agents)
+        self.assertIn("d", h.agents)
+
+        # New players should have default priors
+        self.assertEqual(h.agents["c"].player.prior.mu, 25.0)
+        self.assertEqual(h.agents["d"].player.prior.mu, 25.0)
+
+    def test_history_add_events_validation(self):
+        """Test input validation for add_events."""
+        h = ttt.History([[["a"],["b"]]], [[1,0]])
+
+        # Test mismatched results
+        with self.assertRaises(ValueError):
+            h.add_events([[["c"],["d"]]], [[1,0], [0,1]])
+
+        # Test time consistency
+        h2 = ttt.History([[["a"],["b"]]], [[1,0]], [100])
+        with self.assertRaises(ValueError):
+            h2.add_events([[["c"],["d"]]], [[1,0]])  # No times when history uses times
+
     def ToDo(self):
         print("Ningun toDo")
         
