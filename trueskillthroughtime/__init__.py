@@ -527,24 +527,45 @@ class Batch(object):
 
 class History(object):
     def __init__(self,composition, results=[], times=[], priors=dict(), mu=MU, sigma=SIGMA, beta=BETA, gamma=GAMMA, p_draw=P_DRAW, weights=[]):
-        if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
-        if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
-        if (len(weights) > 0) and (len(composition) != len(weights)): raise ValueError("(length(weights) > 0) & (length(composition) != length(weights))")
-            
-        self.size = len(composition)
+        self.size = 0
         self.batches = []
-        self.agents = dict([ (a, Agent(priors[a] if a in priors else Player(Gaussian(mu, sigma), beta, gamma), Ninf, -inf)) for a in set( [a for teams in composition for team in teams for a in team] ) ])
+        self.agents = dict()
         self.mu = mu
         self.sigma = sigma
+        self.beta = beta
         self.gamma = gamma
         self.p_draw = p_draw
-        self.time = len(times)>0
-        self.trueskill(composition,results,times, weights)
-        
+        self.time = None
+        self.latest_time = 0
+        self.add_history(composition, results, times, priors, weights)
     def __repr__(self):
         return "History(Events={}, Batches={}, Agents={})".format(self.size,len(self.batches),len(self.agents))
     def __len__(self):
         return self.size
+    def add_history(self, composition, results=[], times=[], priors=dict(), weights=[]):
+        if (len(results) > 0) and (len(composition) != len(results)): raise ValueError("len(composition) != len(results)")
+        if (len(times) > 0) and (len(composition) != len(times)): raise ValueError(" len(times) error ")
+        if (len(weights) > 0) and (len(composition) != len(weights)): raise ValueError("(length(weights) > 0) & (length(composition) != length(weights))")
+        if self.time is None:
+            self.time = len(times) > 0
+            self.latest_time = max(times)
+        else:
+            if self.time is True:
+                if len(times) == 0: raise ValueError(" len(times) error ")
+                self.latest_time = max(times)
+            else:
+                if len(times) > 0: raise ValueError(" len(times) error ")
+        self.size += len(composition)
+        for a in set( [a for teams in composition for team in teams for a in team] ):
+            if a in self.agents:
+                continue
+            if a in priors:
+                p = priors[a]
+            else:
+                p = Player(Gaussian(self.mu, self.sigma), self.beta, self.gamma)
+            self.agents[a] = Agent(p, Ninf, -inf)
+        self.trueskill(composition,results,times, weights)
+
     def trueskill(self, composition, results, times, weights):
         o = sortperm(times) if len(times)>0 else [i for i in range(len(composition))]
         i = 0
