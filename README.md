@@ -6,9 +6,22 @@ The package is available in [PyPI](https://pypi.org/search/?q=trueskillthroughti
 
 `python3 -m pip install trueskillthroughtime`
 
-Then you can use it
+## Version 2.0.0 - New Features
 
-`import trueskillthroughtime as ttt`
+Version 2.0.0 introduces major enhancements to `trueskillthroughtime`:
+
+```python
+import trueskillthroughtime as ttt
+```
+
+**Key features in v2.0.0:**
+- **Multiple observation models**: Ordinal (win/loss), Continuous (time/distance), Discrete (scores/goals)
+- **Incremental updates**: Add new games to existing history with `add_history()`
+- **Mixed model types**: Different observation models in the same history via `obs` parameter
+- **Enhanced API**: New parameters `obs`, `who`, and `online` for flexible analysis
+- **Complete documentation**: English docstrings for all classes and methods
+
+See the [RELEASE.md](RELEASE.md) for complete details of all changes in v2.0.0.
 
 ## Documentation
 

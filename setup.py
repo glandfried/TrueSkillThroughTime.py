@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="trueskillthroughtime",
-    version="1.1.0",
+    version="2.0.0",
     author="Gustavo Landfried",
     author_email="gustavolandfried@gmail.com",
-    description="The temporal learning estimator: Individual learning curves with reliable initial estimates and guaranteed comparability between distant estimates.",
+    description="The temporal learning estimator: Individual learning curves with reliable initial estimates and guaranteed comparability between distant estimates. v2.0.0 adds multiple observation models (Ordinal, Continuous, Discrete) and incremental history updates.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/glandfried/TrueSkillThroughTime.py/",
@@ -20,6 +20,6 @@ setuptools.setup(
     ],
     packages=['trueskillthroughtime'],
     #python_requires=">=3.6",
-    download_url = 'https://github.com/glandfried/TrueSkillThroughTime.py/archive/refs/tags/v1.1.0.tar.gz',
+    download_url = 'https://github.com/glandfried/TrueSkillThroughTime.py/archive/refs/tags/v2.0.0.tar.gz',
     install_requires=[]
 )

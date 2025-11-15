@@ -42,7 +42,8 @@ c1 = [["a"],["b"]]
 c2 = [["b"],["c"]]
 c3 = [["c"],["a"]]
 composition = [c1, c2, c3]
-h = History(composition)
+h = History(composition, times=[0,0,0])
+h.forward_propagation()
 time_tt = timeit.timeit(lambda: History(composition), number=1000)/1000
 
 print("Code 8")
