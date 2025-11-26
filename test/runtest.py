@@ -17,9 +17,10 @@ Run with: python runtest.py
 
 import unittest
 import sys
-sys.path.append('..')
-import trueskillthroughtime2 as ttt
-#import old
+sys.path.append("..")
+import trueskillthroughtime as ttt
+
+# import old
 from importlib import reload  # Python 3.4+ only.
 reload(ttt)
 #reload(old)
