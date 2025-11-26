@@ -23,6 +23,8 @@ Main classes:
 :license: BSD, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 import copy
 import math
 from collections import defaultdict
