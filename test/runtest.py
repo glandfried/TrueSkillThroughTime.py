@@ -602,18 +602,28 @@ class tests(unittest.TestCase):
         #
         result_ta = 45.24
         result_tb = 44.24
-        g = ttt.Game([ta,tb], [result_ta,result_tb], obs="Continuous")
+        g = ttt.Game([ta, tb], [result_ta, result_tb], obs=ttt.GameType.Continuous)
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(2,1.549193)))
         self.assertTrue(post[1][0].isapprox(ttt.Gaussian(1,1.549193)))
 
-        g = ttt.Game([ta,tb], [result_ta,result_tb], obs="Continuous", weights=[[1.0],[1.0]])
+        g = ttt.Game(
+            [ta, tb],
+            [result_ta, result_tb],
+            obs=ttt.GameType.Continuous,
+            weights=[[1.0], [1.0]],
+        )
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(2,1.549193)))
         self.assertTrue(post[1][0].isapprox(ttt.Gaussian(1,1.549193)))
 
         # Los pesos tienen un compartamiento raro, porque si la media es positiva un peso alto aumenta la habilidad, pero si la media es negativa, un peso bajo la disminuye. Esto no parece ser un comportamiento razonable teniendo en cuenta que el valor absoluto de las medias no tiene ningún significado. TODO: profundizar esta idea en el caso en el que el observable es "orden", pues esto mismo ocurre también ahí.
-        g = ttt.Game([ta,tb], [result_ta,result_tb], obs="Continuous", weights=[[1.0],[2.0]])
+        g = ttt.Game(
+            [ta, tb],
+            [result_ta, result_tb],
+            obs=ttt.GameType.Continuous,
+            weights=[[1.0], [2.0]],
+        )
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(2.160000,1.833030)))
         self.assertTrue(post[1][0].isapprox(ttt.Gaussian(0.680000,1.200000)))
@@ -624,7 +634,12 @@ class tests(unittest.TestCase):
         w_ta = [1.0]
         w_tb = [5.0]
         #
-        g = ttt.Game([ta,tb], [result_ta,result_tb], obs="Continuous", weights=[w_ta,w_tb])
+        g = ttt.Game(
+            [ta, tb],
+            [result_ta, result_tb],
+            obs=ttt.GameType.Continuous,
+            weights=[w_ta, w_tb],
+        )
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(-0.123077,1.968990), 1e-5))
         self.assertTrue(post[1][0].isapprox(ttt.Gaussian(-0.384615,0.960769), 1e-5))
@@ -635,7 +650,12 @@ class tests(unittest.TestCase):
         w_ta = [1.0]
         w_tb = [5.0]
         #
-        g = ttt.Game([ta,tb], [result_ta,result_tb], obs="Continuous", weights=[w_ta,w_tb])
+        g = ttt.Game(
+            [ta, tb],
+            [result_ta, result_tb],
+            obs=ttt.GameType.Continuous,
+            weights=[w_ta, w_tb],
+        )
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(2.123077,1.968990) , 1e-5))
         self.assertTrue(post[1][0].isapprox(ttt.Gaussian(0.384615,0.960769), 1e-5))
@@ -646,7 +666,7 @@ class tests(unittest.TestCase):
         tb = [ttt.Player(ttt.Gaussian(4,2),1,0)]
         tc = [ttt.Player(ttt.Gaussian(3,2),1,0)]
         result = [4.2, 0.2, 2.1]
-        g = ttt.Game([ta,tc,tb], result, obs="Continuous")
+        g = ttt.Game([ta, tc, tb], result, obs=ttt.GameType.Continuous)
         post = g.posteriors()
         self.assertTrue(post[0][0].isapprox(ttt.Gaussian(2.816000,1.649242) , 1e-5))
         self.assertTrue(post[0][1].isapprox(ttt.Gaussian(2.816000,1.649242) , 1e-5))
@@ -660,8 +680,13 @@ class tests(unittest.TestCase):
         priors["b"] = ttt.Player(ttt.Gaussian(4,2),1,0)
         priors["c"] = ttt.Player(ttt.Gaussian(3,2),1,0)
         results = [[4.2, 0.2, 2.1]]
-        obs = ["Continuous"]
-        h = ttt.History(composition=[ [ ["a1", "a2"], ["c"], ["b"] ] ], results = results, priors=priors, obs=obs )
+        obs = [ttt.GameType.Continuous]
+        h = ttt.History(
+            composition=[[["a1", "a2"], ["c"], ["b"]]],
+            results=results,
+            priors=priors,
+            obs=obs,
+        )
         h.forward_propagation()
         lc = h.learning_curves()
         self.assertTrue(lc["a1"][0][1].isapprox(ttt.Gaussian(2.816000,1.649242) , 1e-5))
@@ -682,23 +707,27 @@ class tests(unittest.TestCase):
         wa = [1.0]
         tb = [ttt.Player(ttt.Gaussian(0,6),1,0)]
         wb = [1.0]
-        result = [0,54]
-        g = ttt.Game([ta,tb], result = result, weights=[wa,wb], obs="Discrete")
-        post= g.posteriors()
-        #print(post)
-        self.assertTrue(post[0][0].isapprox(ttt.Gaussian(0.118952,4.300102)))
-        self.assertTrue(post[1][0].isapprox(ttt.Gaussian(3.881048,4.300102)))
+        result = [0, 54]
+        g = ttt.Game(
+            [ta, tb], result=result, weights=[wa, wb], obs=ttt.GameType.Discrete
+        )
+        post = g.posteriors()
+        # print(post)
+        self.assertTrue(post[0][0].isapprox(ttt.Gaussian(0.118952, 4.300102)))
+        self.assertTrue(post[1][0].isapprox(ttt.Gaussian(3.881048, 4.300102)))
 
-        ta = [ttt.Player(ttt.Gaussian(4,1),1,0)]
+        ta = [ttt.Player(ttt.Gaussian(4, 1), 1, 0)]
         wa = [1.0]
-        tb = [ttt.Player(ttt.Gaussian(0,1),1,0)]
+        tb = [ttt.Player(ttt.Gaussian(0, 1), 1, 0)]
         wb = [1.0]
-        result = [math.exp(4),0]
-        g = ttt.Game([ta,tb], result = result, weights=[wa,wb], obs="Discrete")
-        post= g.posteriors()
-        #print(post)
-        self.assertTrue(post[0][0].isapprox(ttt.Gaussian(3.997732,0.866683)))
-        self.assertTrue(post[1][0].isapprox(ttt.Gaussian(0.002268,0.866683)))
+        result = [math.exp(4), 0]
+        g = ttt.Game(
+            [ta, tb], result=result, weights=[wa, wb], obs=ttt.GameType.Discrete
+        )
+        post = g.posteriors()
+        # print(post)
+        self.assertTrue(post[0][0].isapprox(ttt.Gaussian(3.997732, 0.866683)))
+        self.assertTrue(post[1][0].isapprox(ttt.Gaussian(0.002268, 0.866683)))
 
     def test_history_discrete_NvsMvsL(self):
         priors = dict()
@@ -707,8 +736,13 @@ class tests(unittest.TestCase):
         priors["b"] = ttt.Player(ttt.Gaussian(4,2),1,0)
         priors["c"] = ttt.Player(ttt.Gaussian(3,2),1,0)
         results = [[4, 0, 2]]
-        obs = ["Discrete"]
-        h = ttt.History(composition=[ [ ["a1", "a2"], ["c"], ["b"] ] ], results = results, priors=priors, obs=obs )
+        obs = [ttt.GameType.Discrete]
+        h = ttt.History(
+            composition=[[["a1", "a2"], ["c"], ["b"]]],
+            results=results,
+            priors=priors,
+            obs=obs,
+        )
         h.forward_propagation()
         lc = h.learning_curves()
         #print(lc)
@@ -725,7 +759,7 @@ class tests(unittest.TestCase):
         priors["c"] = ttt.Player(ttt.Gaussian(3,2),1,0.1)
         results = [[4,0,2],[4.0, 0.0, 2.1],[4, 0, 2]]
         times = [0, 1, 2]
-        obs = ["Ordinal", "Continuous", "Discrete"]
+        obs = [ttt.GameType.Ordinal, ttt.GameType.Continuous, ttt.GameType.Discrete]
 
         h = ttt.History(composition=[  [ ["a1", "a2"], ["c"], ["b"] ] ]*3, results = results, times=times, priors=priors, obs=obs )
         h.forward_propagation()
