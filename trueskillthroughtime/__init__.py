@@ -1080,8 +1080,8 @@ class History(object):
     def add_history(
         self,
         composition: list[list[list[str]]],
-        results: list[list[float]],
-        times: list[int],
+        results: list[list[float]] = [],
+        times: list[int] = [],
         priors: dict[str, Player] = dict(),
         weights: list[list[list[float]]] = [],
         obs: list[GameType] = [],
