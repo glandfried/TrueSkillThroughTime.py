@@ -679,8 +679,11 @@ class Game(object):
             # Monte Carlo Solution
             N = 5000
             hardcoded_lower_bound = 1 / (2 * N)
-            poisson_rvs = poisson.rvs(mu=np.exp(norm.rvs(size=N, loc=mu, scale=sigma)))
-            evidence = np.sum(r == poisson_rvs) / N
+
+            latent_diffs = norm.rvs(size=N, loc=mu, scale=sigma)
+            lambdas = np.exp(latent_diffs)
+            probs = poisson.pmf(r, lambdas)
+            evidence = np.mean(probs)
             self.evidence *= hardcoded_lower_bound + evidence
             #
             # Version Guo et al:
