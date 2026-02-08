@@ -164,13 +164,18 @@ def approx(N, margin, tie):
     return Gaussian(mu, sigma)
 
 
-def fixed_point_approx(r: int, mu: float, sigma: float, max_iter: int = 16, tol: float = 1e-6) -> tuple[float, float]:
+def fixed_point_approx(r: int, mu: float, sigma: float, max_iter: int = 50, tol: float = 1e-10) -> tuple[float, float]:
     """
-    Gaussian approximation via fixed-point iteration for Poisson observations.
+    Gaussian approximation via bisection for Poisson observations.
     
-    Solves the fixed-point equations for the Gaussian approximation of p(d|r) 
-    when the result r is a non-negative score r ~ Poisson(r|exp(d)) and the 
-    difference of performance is Gaussian, d ~ N(d|mu, sigma²).
+    Finds the fixed point kappa where f(kappa) = kappa for the Gaussian
+    approximation of p(d|r) when the result r is a non-negative score
+    r ~ Poisson(r|exp(d)) and the difference of performance is Gaussian,
+    d ~ N(d|mu, sigma²).
+    
+    Uses bisection instead of direct fixed-point iteration, which can
+    diverge when r*sigma² is large (the fixed-point map becomes
+    non-contractive).
     
     Based on: Guo et al. (2012) "Score-based Bayesian skill learning"
     
@@ -178,37 +183,44 @@ def fixed_point_approx(r: int, mu: float, sigma: float, max_iter: int = 16, tol:
         r: Observed score difference (non-negative integer)
         mu: Prior mean of performance difference
         sigma: Prior standard deviation of performance difference
-        max_iter: Maximum number of iterations (default: 16)
-        tol: Convergence tolerance (default: 1e-6)
+        max_iter: Maximum number of bisection steps (default: 50)
+        tol: Convergence tolerance (default: 1e-10)
     
     Returns:
         tuple: (mu_new, sigma_new) parameters of the Gaussian approximation
     """
     sigma2 = sigma**2
-    def compute_kappa(k_prev):
-        term = k_prev - mu - r * sigma2 - 1
+    #
+    # g(kappa) = f(kappa) - kappa = 0 at the fixed point.
+    # g is monotonically decreasing: g → +∞ as kappa → -∞, g → -∞ as kappa → +∞.
+    def g(k):
+        term = k - mu - r * sigma2 - 1
         sqrt_term = math.sqrt(term**2 + 2*sigma2)
-        numerator = mu + r*sigma2 - 1 - k_prev + sqrt_term
-        return math.log(numerator/(2*sigma2))
+        numerator = mu + r*sigma2 - 1 - k + sqrt_term
+        if numerator <= 0:
+            return -1e10
+        return math.log(numerator / (2*sigma2)) - k
     #
-    # Initialize kappa
-    kappa = 1
+    # Bisection: find bracket then narrow down
+    lo, hi = -20.0, 20.0
+    if g(lo) < 0 or g(hi) > 0:
+        lo, hi = -50.0, 50.0
     #
-    # Fixed-point iteration
-    i = 0
-    step = inf
-    while (i < max_iter) and step > tol:
-        kappa_new = compute_kappa(kappa)
-        step = abs(kappa_new - kappa)
-        kappa = kappa_new
-        #print(i, " ", step)
-        i += 1
+    for i in range(max_iter):
+        mid = (lo + hi) / 2.0
+        g_mid = g(mid)
+        if abs(g_mid) < tol or (hi - lo) < tol:
+            break
+        if g_mid > 0:
+            lo = mid
+        else:
+            hi = mid
+    kappa = (lo + hi) / 2.0
     #
     # Compute final mu_new and sigma2_new
     mu_new = mu + sigma2 * (r - math.exp(kappa))
     sigma2_new = sigma2 / (1 + sigma2 * math.exp(kappa))
     #
-    #print(mu_new, sigma2_new)
     return mu_new, math.sqrt(sigma2_new)
 
 def compute_margin(p_draw, sd):
